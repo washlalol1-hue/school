@@ -138,6 +138,21 @@
         }
       });
     });
+
+    // Mobile hamburger for landing page
+    (function() {
+      var nav = document.querySelector('.public-nav .links');
+      var inner = document.querySelector('.public-nav-inner');
+      var toggle = document.createElement('button');
+      toggle.className = 'mobile-nav-toggle';
+      toggle.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+      toggle.setAttribute('aria-label', 'Toggle menu');
+      inner.appendChild(toggle);
+      toggle.addEventListener('click', function() {
+        nav.classList.toggle('open');
+        this.classList.toggle('active');
+      });
+    })();
   </script>
 </body>
 </html>
