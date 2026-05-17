@@ -82,14 +82,71 @@
 
   <script src="assets/js/data.js"></script>
   <script>
+    // If already logged in, redirect
+    if (localStorage.getItem('tvmd_token')) {
+      location.href = 'dashboard.html';
+    }
+
+    // Read ref query parameter and auto-fill invite code
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var refCode = params.get('ref');
+      if (refCode) {
+        var inviteInput = document.getElementById('reg_invite');
+        inviteInput.value = refCode;
+        inviteInput.setAttribute('readonly', 'true');
+        // Show invited-by indicator
+        var indicator = document.createElement('div');
+        indicator.className = 'notice info';
+        indicator.innerHTML = '<strong>Invited by:</strong> ' + refCode;
+        inviteInput.parentNode.appendChild(indicator);
+      }
+    })();
+
     document.getElementById("registerForm").addEventListener("submit", function (e) {
       e.preventDefault();
-      // Save chosen username/email to local demo state so the dashboard
-      // shows it. No real account is created.
-      const username = document.getElementById("reg_username").value.trim();
-      const email    = document.getElementById("reg_contact").value.trim();
-      if (username || email) DEMO.api.setProfile({ username, email });
-      document.getElementById("modal").classList.add("open");
+      var username = document.getElementById("reg_username").value.trim();
+      var email    = document.getElementById("reg_contact").value.trim();
+      var password = document.getElementById("reg_pw").value;
+      var password2 = document.getElementById("reg_pw2").value;
+      var inviteCode = document.getElementById("reg_invite").value.trim();
+
+      if (!username || !email || !password) {
+        alert("Please fill in all required fields");
+        return;
+      }
+      if (password !== password2) {
+        alert("Passwords do not match");
+        return;
+      }
+
+      // Client-side email format validation
+      var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        alert("Please enter a valid email address");
+        return;
+      }
+
+      fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, email: email, password: password, inviteCode: inviteCode || undefined })
+      })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.token) {
+            localStorage.setItem('tvmd_token', data.token);
+            if (data.user) {
+              localStorage.setItem('tvmd_cache', JSON.stringify({ user: data.user }));
+            }
+            document.getElementById("modal").classList.add("open");
+          } else {
+            alert(data.error || 'Registration failed');
+          }
+        })
+        .catch(function () {
+          alert('Unable to connect to server. Please try again later.');
+        });
     });
     document.getElementById("closeBtn").addEventListener("click", function () {
       document.getElementById("modal").classList.remove("open");

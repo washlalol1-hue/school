@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard · T-Video Media</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div id="appRoot"></div>
+
+  <template id="pageContent">
+    <h1 class="page-title">Welcome back <span id="hello"></span></h1>
+
+    <!-- Notification banner -->
+    <div id="topBanner"></div>
+
+    <!-- Profile + balance -->
+    <div class="grid grid-2 mb-16">
+      <div class="profile">
+        <div class="avatar" id="avatar">--</div>
+        <div>
+          <div style="font-weight:800;font-size:18px;" id="username">Loading...</div>
+          <div class="row-flex mt-8">
+            <span class="badge badge-gold" id="vipBadge">No package</span>
+            <span id="vipExpiry" class="muted" style="font-size:12px;"></span>
+            <span class="badge">ID #<span id="userIdSuffix">0</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;">Balance</div>
+        <div style="font-size:32px;font-weight:800;color:var(--primary);" id="balance">$0.00</div>
+        <div class="row-flex mt-16">
+          <a class="btn btn-primary" href="tasks.html">Earn from tasks</a>
+          <a class="btn" href="withdraw.html">Withdraw</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stat grid -->
+    <div class="grid grid-4 mb-16">
+      <div class="stat">
+        <div class="label">Today's earnings</div>
+        <div class="value" id="todayEarn">$0.00</div>
+        <div class="delta" id="todayDelta">loading...</div>
+      </div>
+      <div class="stat">
+        <div class="label">Total earnings</div>
+        <div class="value" id="totalEarn">$0.00</div>
+        <div class="delta">since first task</div>
+      </div>
+      <div class="stat">
+        <div class="label">Completed tasks</div>
+        <div class="value" id="doneTasks">0</div>
+        <div class="delta">today</div>
+      </div>
+      <div class="stat">
+        <div class="label">Referrals</div>
+        <div class="value" id="refCount">0</div>
+        <div class="delta">L1 direct</div>
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="card mb-16">
+      <h3 class="mt-0 mb-8">Quick actions</h3>
+      <div class="grid grid-3">
+        <a class="btn" href="tasks.html">Watch Tasks</a>
+        <a class="btn" href="recharge.html">Recharge</a>
+        <a class="btn" href="withdraw.html">Withdraw</a>
+        <a class="btn" href="invite.html">Invite Friends</a>
+        <a class="btn" href="vip.html">Upgrade VIP</a>
+        <a class="btn" href="support.html">Contact Support</a>
+      </div>
+    </div>
+
+    <!-- VIP progress + Withdrawal status -->
+    <div class="grid grid-2 mb-16">
+      <div class="card" id="vipCard"></div>
+      <div class="card">
+        <h3 class="mt-0">Withdrawal status</h3>
+        <div class="row-flex" id="wdRow">
+          <span class="badge badge-muted">No requests yet</span>
+        </div>
+        <a class="btn mt-8" href="withdraw.html">Open withdrawal page</a>
+      </div>
+    </div>
+
+    <!-- Recent activity preview -->
+    <div class="card">
+      <div class="row-flex space-between mb-8">
+        <h3 class="mt-0 mb-0">Recent activity</h3>
+        <a class="btn btn-sm" href="transactions.html">View all</a>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
+          <tbody id="recentTx"></tbody>
+        </table>
+      </div>
+    </div>
+  </template>
+
+  <script>if (!localStorage.getItem('tvmd_token')) { location.href = 'login.html'; }</script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    UI.renderShell("Home");
+
+    function statusBadge(s) {
+      const map = {
+        Completed: "badge-success",
+        Pending:   "badge-warning",
+        Rejected:  "badge-danger",
+        Frozen:    "badge-danger",
+      };
+      return `<span class="badge ${map[s] || "badge-muted"}">${escapeHtml(s)}</span>`;
+    }
+
+    function renderProfile() {
+      const u = DEMO.user;
+      document.getElementById("hello").textContent = u.username || '';
+      document.getElementById("username").textContent = u.username || '';
+      document.getElementById("avatar").textContent = (u.avatar || (u.username || '--').slice(0, 2)).toUpperCase();
+      document.getElementById("userIdSuffix").textContent = u.id || '0';
+    }
+
+    function renderStats(stats) {
+      const todayDone = stats.todayTasksDone || 0;
+      const todayTotal = stats.todayTasksTotal || 0;
+
+      document.getElementById("balance").textContent = "$" + (stats.balance || 0).toFixed(2);
+      document.getElementById("todayEarn").textContent = "$" + (stats.todayEarnings || 0).toFixed(2);
+      document.getElementById("totalEarn").textContent = "$" + (stats.totalEarnings || 0).toFixed(2);
+      document.getElementById("doneTasks").textContent = todayDone + " / " + todayTotal;
+      document.getElementById("refCount").textContent = stats.referralCount || 0;
+      document.getElementById("todayDelta").textContent =
+        todayTotal > 0 ? `${todayDone} / ${todayTotal} tasks today` : "Buy a package to start";
+
+      // VIP badge
+      const vipBadge = document.getElementById("vipBadge");
+      const tier = DEMO.vipTiers.find(t => t.level === stats.vipLevel);
+      if (tier && tier.level > 0) {
+        vipBadge.className = "badge badge-gold";
+        vipBadge.textContent = tier.name;
+      } else {
+        vipBadge.className = "badge badge-muted";
+        vipBadge.textContent = "No package";
+      }
+
+      // VIP expiry
+      const expiryEl = document.getElementById("vipExpiry");
+      if (stats.vipExpiresAt) {
+        const d = new Date(stats.vipExpiresAt);
+        expiryEl.textContent = "Expires: " + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+
+      // Top banner
+      const banner = document.getElementById("topBanner");
+      if (tier && tier.level > 0) {
+        banner.innerHTML = `<div class="notice info">
+          Active package <strong>${escapeHtml(tier.name)}</strong> - ${todayDone} / ${todayTotal} tasks completed today
+          - <a href="tasks.html">continue tasks</a>
+        </div>`;
+      } else {
+        banner.innerHTML = `<div class="notice danger">
+          <strong>You have no package selected.</strong>
+          Buy a package to start unlocking daily video tasks.
+          <div class="row-flex mt-8">
+            <a class="btn btn-primary btn-sm" href="vip.html">Buy a package</a>
+          </div>
+        </div>`;
+      }
+
+      // VIP card
+      const vipCard = document.getElementById("vipCard");
+      if (tier && tier.level > 0) {
+        const pct = todayTotal > 0 ? Math.round((todayDone / todayTotal) * 100) : 0;
+        const reward = tier.daily > 0 ? (tier.dailyIncome / tier.daily).toFixed(2) : '0.00';
+        vipCard.innerHTML = `
+          <h3 class="mt-0">${escapeHtml(tier.name)} - daily progress</h3>
+          <div class="muted mb-8">
+            ${todayDone} of ${todayTotal} tasks done today - reward $${reward} each
+          </div>
+          <div class="progress"><span style="width:${pct}%;"></span></div>
+          <div class="muted mt-8" style="font-size:12px;">
+            Daily income $${tier.dailyIncome.toFixed(2)} - monthly $${tier.monthlyIncome.toLocaleString()}
+          </div>
+          <div class="row-flex mt-16">
+            <a class="btn btn-primary" href="tasks.html">Go to tasks</a>
+            <a class="btn" href="vip.html">Manage packages</a>
+          </div>
+        `;
+      } else {
+        vipCard.innerHTML = `
+          <h3 class="mt-0">You don't have a package yet</h3>
+          <p class="muted">
+            Buy a package to set how many daily tasks you get and how much
+            each one pays.
+          </p>
+          <div class="row-flex">
+            <a class="btn btn-primary" href="vip.html">Buy a package</a>
+          </div>
+        `;
+      }
+    }
+
+    function renderRecentActivity(transactions) {
+      const tbody = document.getElementById("recentTx");
+      tbody.innerHTML = "";
+      if (!transactions || !transactions.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="muted center">No activity yet.</td></tr>`;
+        return;
+      }
+      transactions.forEach(t => {
+        const sign = t.amount >= 0 ? "+" : "-";
+        const cls = t.amount >= 0 ? "badge-success" : "badge-warning";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${escapeHtml(t.date || '')}</td>
+          <td>${escapeHtml(t.type || '')}</td>
+          <td><span class="badge ${cls}">${sign}$${Math.abs(t.amount).toFixed(2)}</span></td>
+          <td>${statusBadge(t.status)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderWithdrawalStatus(withdrawals) {
+      const wdRow = document.getElementById("wdRow");
+      if (withdrawals && withdrawals.length > 0) {
+        const wd = withdrawals[0];
+        wdRow.innerHTML = `${statusBadge(wd.status)} <span class="muted" style="font-size:13px;">$${wd.amount.toFixed(2)} on ${wd.date || ''}</span>`;
+      } else {
+        wdRow.innerHTML = `<span class="badge badge-muted">No requests yet</span>`;
+      }
+    }
+
+    // Render initial state from cached DEMO data
+    renderProfile();
+
+    // Fetch stats from API
+    API.fetch('/api/stats').then(stats => {
+      if (!stats.error) {
+        renderStats(stats);
+      }
+    }).catch(() => {});
+
+    // Fetch recent transactions
+    API.fetch('/api/transactions?limit=5').then(res => {
+      if (res.transactions) {
+        renderRecentActivity(res.transactions);
+      }
+    }).catch(() => {});
+
+    // Fetch latest withdrawal
+    API.fetch('/api/wallet/withdrawals?limit=1').then(res => {
+      if (res.withdrawals) {
+        renderWithdrawalStatus(res.withdrawals);
+      }
+    }).catch(() => {});
+  </script>
+</body>
+</html>

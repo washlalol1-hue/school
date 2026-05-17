@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Withdraw · T-Video Media</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div id="appRoot"></div>
+
+  <template id="pageContent">
+    <h1 class="page-title">Withdraw</h1>
+
+    <div class="grid grid-2 mb-16">
+      <div class="stat">
+        <div class="label">Available balance</div>
+        <div class="value" id="bal">$0.00</div>
+        <div class="delta">Earned from completing daily tasks</div>
+      </div>
+      <div class="stat">
+        <div class="label">Last withdrawal status</div>
+        <div class="value" id="wdStatus"><span class="badge badge-muted">No requests yet</span></div>
+        <div class="delta" id="wdSubtitle">Submit one below to see it here</div>
+      </div>
+    </div>
+
+    <div class="card mb-16">
+      <h3 class="mt-0">Request withdrawal</h3>
+      <form id="wdForm" autocomplete="off" novalidate>
+        <div class="grid grid-2">
+          <div class="field">
+            <label>Amount (min $5)</label>
+            <input class="input" id="wdAmt" type="number" min="5" step="0.01" placeholder="10" required />
+          </div>
+          <div class="field">
+            <label>Payment address</label>
+            <input class="input" id="wdAddr" placeholder="Your wallet or account address" required />
+          </div>
+        </div>
+        <button class="btn btn-primary" type="submit" id="wdSubmitBtn">Submit withdrawal</button>
+      </form>
+    </div>
+
+    <div class="card mt-16">
+      <h3 class="mt-0">Withdrawal history</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Amount</th><th>Address</th><th>Status</th></tr>
+          </thead>
+          <tbody id="wdRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </template>
+
+  <script>if (!localStorage.getItem('tvmd_token')) { location.href = 'login.html'; }</script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    UI.renderShell("Withdraw");
+
+    function statusBadge(s) {
+      const map = {
+        Pending:   "badge-warning",
+        Completed: "badge-success",
+        Rejected:  "badge-danger",
+        Frozen:    "badge-danger",
+      };
+      return `<span class="badge ${map[s] || "badge-muted"}">${escapeHtml(s)}</span>`;
+    }
+
+    function renderBalance() {
+      document.getElementById("bal").textContent = "$" + (DEMO.user.balance || 0).toFixed(2);
+    }
+
+    function renderHistory(withdrawals) {
+      const tbody = document.getElementById("wdRows");
+      tbody.innerHTML = "";
+      if (!withdrawals || !withdrawals.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="muted center">No withdrawal requests yet.</td></tr>`;
+        document.getElementById("wdStatus").innerHTML = `<span class="badge badge-muted">No requests yet</span>`;
+        document.getElementById("wdSubtitle").textContent = "Submit one below to see it here";
+        return;
+      }
+
+      const last = withdrawals[0];
+      document.getElementById("wdStatus").innerHTML = statusBadge(last.status);
+      document.getElementById("wdSubtitle").textContent =
+        `$${last.amount.toFixed(2)} requested on ${last.date || ''}`;
+
+      withdrawals.forEach(w => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${escapeHtml(w.date || '')}</td>
+          <td>$${w.amount.toFixed(2)}</td>
+          <td><code>${escapeHtml(w.address)}</code></td>
+          <td>${statusBadge(w.status)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Initial render from cached data
+    renderBalance();
+
+    // Load withdrawal history from API
+    API.fetch('/api/wallet/withdrawals').then(res => {
+      if (res.withdrawals) {
+        renderHistory(res.withdrawals);
+      }
+    }).catch(() => {});
+
+    document.getElementById("wdForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const amt = parseFloat(document.getElementById("wdAmt").value || "0");
+      const addr = document.getElementById("wdAddr").value.trim();
+
+      if (!amt || amt <= 0) {
+        UI.toast("Enter a valid amount");
+        return;
+      }
+      if (!addr) {
+        UI.toast("Address is required");
+        return;
+      }
+
+      const btn = document.getElementById("wdSubmitBtn");
+      btn.disabled = true;
+      btn.textContent = "Processing...";
+
+      API.fetch('/api/wallet/withdraw', {
+        method: 'POST',
+        body: JSON.stringify({ amount: amt, address: addr })
+      }).then(res => {
+        btn.disabled = false;
+        btn.textContent = "Submit withdrawal";
+        if (res.ok) {
+          UI.toast("Withdrawal submitted successfully!");
+          e.target.reset();
+          // Refresh balance
+          API.fetch('/api/auth/me').then(meRes => {
+            if (meRes.user) {
+              DEMO.user = meRes.user;
+              if (DEMO.persist) DEMO.persist();
+              renderBalance();
+            }
+          }).catch(() => {});
+          // Refresh history
+          API.fetch('/api/wallet/withdrawals').then(wdRes => {
+            if (wdRes.withdrawals) {
+              renderHistory(wdRes.withdrawals);
+            }
+          }).catch(() => {});
+        } else {
+          UI.toast(res.error || 'Withdrawal failed');
+        }
+      }).catch(err => {
+        btn.disabled = false;
+        btn.textContent = "Submit withdrawal";
+        UI.toast('Withdrawal failed');
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Messages · T-Video Media</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div id="appRoot"></div>
+
+  <template id="pageContent">
+    <h1 class="page-title">Messages & Notifications</h1>
+
+    <div class="grid" id="msgList">
+      <div class="muted center">Loading messages...</div>
+    </div>
+  </template>
+
+  <script>if (!localStorage.getItem('tvmd_token')) { location.href = 'login.html'; }</script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    UI.renderShell("Messages");
+
+    const tagCls = {
+      Promo:  "badge-success",
+      VIP:    "badge-gold",
+      System: "badge-muted",
+      Invite: "badge",
+      Alert:  "badge-danger",
+    };
+
+    API.fetch('/api/messages').then(res => {
+      const list = document.getElementById("msgList");
+      list.innerHTML = "";
+
+      if (!res.messages || !res.messages.length) {
+        list.innerHTML = `<div class="card"><p class="muted center">No messages yet</p></div>`;
+        return;
+      }
+
+      res.messages.forEach(m => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <div class="row-flex space-between">
+            <div class="row-flex">
+              <span class="badge ${tagCls[m.tag] || ""}">${escapeHtml(m.tag || '')}</span>
+              <strong>${escapeHtml(m.title || '')}</strong>
+            </div>
+            <span class="muted" style="font-size:12px;">${escapeHtml(m.date || '')}</span>
+          </div>
+          <div class="muted mt-8" style="font-size:14px;">${escapeHtml(m.body || '')}</div>
+        `;
+        list.appendChild(card);
+      });
+    }).catch(() => {
+      const list = document.getElementById("msgList");
+      list.innerHTML = `<div class="card"><p class="muted center">Failed to load messages</p></div>`;
+    });
+  </script>
+</body>
+</html>

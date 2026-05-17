@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Team · T-Video Media</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div id="appRoot"></div>
+
+  <template id="pageContent">
+    <h1 class="page-title">My Team</h1>
+
+    <div class="grid grid-4 mb-16">
+      <div class="stat"><div class="label">Total members</div><div class="value" id="totalM">0</div></div>
+      <div class="stat"><div class="label">Active</div><div class="value" id="activeM">0</div></div>
+      <div class="stat"><div class="label">Inactive</div><div class="value" id="inactiveM">0</div></div>
+      <div class="stat"><div class="label">Total commission</div><div class="value" id="earnM">$0.00</div></div>
+    </div>
+
+    <div class="grid grid-3 mb-16">
+      <div class="card">
+        <h3 class="mt-0">Level 1</h3>
+        <div class="muted">Direct invites (10%)</div>
+        <div style="font-size:22px;font-weight:800;color:var(--primary);" id="l1Count">0</div>
+      </div>
+      <div class="card">
+        <h3 class="mt-0">Level 2</h3>
+        <div class="muted">2nd tier (5%)</div>
+        <div style="font-size:22px;font-weight:800;color:var(--primary);" id="l2Count">0</div>
+      </div>
+      <div class="card">
+        <h3 class="mt-0">Level 3</h3>
+        <div class="muted">3rd tier (2%)</div>
+        <div style="font-size:22px;font-weight:800;color:var(--primary);" id="l3Count">0</div>
+      </div>
+    </div>
+
+    <div class="card mb-16">
+      <h3 class="mt-0">Downline</h3>
+      <div class="tabs mb-16">
+        <button class="tab active" data-filter="all">All</button>
+        <button class="tab" data-filter="1">L1</button>
+        <button class="tab" data-filter="2">L2</button>
+        <button class="tab" data-filter="3">L3</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Username</th><th>Level</th><th>Join date</th><th>VIP level</th><th>Contribution</th><th>Status</th></tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </template>
+
+  <script>if (!localStorage.getItem('tvmd_token')) { location.href = 'login.html'; }</script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    UI.renderShell("Team");
+
+    let allReferrals = [];
+
+    function renderTable(filter) {
+      const tbody = document.getElementById("rows");
+      tbody.innerHTML = "";
+      const filtered = filter === "all" ? allReferrals : allReferrals.filter(r => String(r.level) === filter);
+      if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="muted center">No team members yet</td></tr>';
+        return;
+      }
+      filtered.forEach(r => {
+        const tr = document.createElement("tr");
+        const cls = r.status === "Active" ? "badge-success" : "badge-muted";
+        const lvlCls = r.level === 1 ? "badge-gold" : r.level === 2 ? "badge-warning" : "badge-muted";
+        tr.innerHTML = `
+          <td>${escapeHtml(r.username || '')}</td>
+          <td><span class="badge ${lvlCls}">L${r.level}</span></td>
+          <td>${escapeHtml(r.joined || '')}</td>
+          <td><span class="badge badge-gold">VIP ${r.vip || 0}</span></td>
+          <td>$${(r.contribution || 0).toFixed(2)}</td>
+          <td><span class="badge ${cls}">${escapeHtml(r.status || '')}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Tab filtering
+    document.querySelectorAll('.tabs .tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        renderTable(this.getAttribute('data-filter'));
+      });
+    });
+
+    API.fetch('/api/team').then(res => {
+      if (!res.referrals) return;
+      allReferrals = res.referrals;
+      const total = allReferrals.length;
+      const active = allReferrals.filter(r => r.status === "Active").length;
+      const inactive = total - active;
+      const totalComm = res.totalCommission || 0;
+
+      document.getElementById("totalM").textContent = total;
+      document.getElementById("activeM").textContent = active;
+      document.getElementById("inactiveM").textContent = inactive;
+      document.getElementById("earnM").textContent = "$" + totalComm.toFixed(2);
+
+      document.getElementById("l1Count").textContent = res.l1Count || 0;
+      document.getElementById("l2Count").textContent = res.l2Count || 0;
+      document.getElementById("l3Count").textContent = res.l3Count || 0;
+
+      renderTable("all");
+    }).catch(() => {
+      UI.toast("Failed to load team data");
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VIP Levels · T-Video Media</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div id="appRoot"></div>
+
+  <template id="pageContent">
+    <h1 class="page-title">VIP Levels</h1>
+
+    <div id="active-banner"></div>
+
+    <div class="grid grid-3" id="vipGrid"></div>
+  </template>
+
+  <script>if (!localStorage.getItem('tvmd_token')) { location.href = 'login.html'; }</script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    UI.renderShell("VIP Levels");
+
+    function render() {
+      var u = DEMO.user;
+      var grid = document.getElementById("vipGrid");
+      grid.innerHTML = "";
+
+      // Active package banner
+      var banner = document.getElementById("active-banner");
+      var activeLevel = u.vipLevel;
+      var active = DEMO.vipTiers.find(function (t) { return t.level === activeLevel; });
+      var rewardPerTask = active && active.daily ? Math.round((active.dailyIncome / active.daily) * 100) / 100 : 0;
+
+      if (active) {
+        var expiresHtml = '';
+        if (u.vipExpiresAt) {
+          var expDate = new Date(u.vipExpiresAt);
+          var now = new Date();
+          if (expDate < now) {
+            expiresHtml = ' · <span class="badge badge-danger">Expired</span>';
+          } else {
+            expiresHtml = ' · Expires: ' + expDate.toLocaleDateString();
+          }
+        }
+        banner.innerHTML =
+          '<div class="notice info">' +
+            'Active package: <strong>' + escapeHtml(active.name) + '</strong> · ' + active.daily + ' daily tasks' +
+            ' · reward $' + rewardPerTask.toFixed(2) + ' per task' +
+            expiresHtml +
+            ' · <a href="tasks.html">go to tasks</a>' +
+          '</div>';
+      } else {
+        banner.innerHTML =
+          '<div class="notice">' +
+            'No package selected yet. Tap <strong>Buy</strong> on any tier below to activate it.' +
+          '</div>';
+      }
+
+      DEMO.vipTiers.forEach(function (v) {
+        var isActive = active && active.level === v.level;
+        var card = document.createElement("div");
+        card.className = "vip" + (v.featured ? " featured" : "");
+        var badges = [];
+        if (v.featured) badges.push('<span class="badge badge-gold">TOP</span>');
+        if (isActive) badges.push('<span class="badge badge-success">Active</span>');
+
+        card.innerHTML =
+          '<div class="row-flex space-between">' +
+            '<h3>' + escapeHtml(v.name) + '</h3>' +
+            '<div class="row-flex">' + badges.join("") + '</div>' +
+          '</div>' +
+          '<div class="price">$' + v.price.toLocaleString() + '</div>' +
+          '<ul>' +
+            '<li>\uD83D\uDCCB ' + v.daily + ' daily tasks</li>' +
+            '<li>\uD83D\uDCB0 Per-task reward: $' + (v.dailyIncome / v.daily).toFixed(2) + '</li>' +
+            '<li>\uD83D\uDCC8 Daily income: $' + v.dailyIncome.toFixed(2) + '</li>' +
+            '<li>\uD83D\uDCC5 Monthly income: $' + v.monthlyIncome.toLocaleString() + '</li>' +
+          '</ul>' +
+          '<button class="btn btn-primary btn-block buy-btn"' +
+            ' data-level="' + v.level + '" data-name="' + escapeHtml(v.name) + '" data-price="' + v.price + '"' +
+            (isActive ? ' disabled style="opacity:.6;cursor:not-allowed;"' : '') + '>' +
+            (isActive ? "Currently active" : (v.free ? "Activate free tier" : "Buy package")) +
+          '</button>';
+        grid.appendChild(card);
+      });
+
+      grid.querySelectorAll(".buy-btn").forEach(function (b) {
+        b.addEventListener("click", function () {
+          confirmBuy(parseInt(b.dataset.level, 10), b.dataset.name, parseFloat(b.dataset.price));
+        });
+      });
+    }
+
+    function confirmBuy(level, name, price) {
+      var body = '<p>Purchase <strong>' + name + '</strong>' + (price > 0 ? ' for <strong>$' + price.toLocaleString() + '</strong>' : '') + '?</p>';
+
+      UI.openModal("Purchase " + name + "?", body, {
+        confirmText: "Confirm Purchase",
+        onConfirm: function () {
+          API.fetch('/api/vip/buy', { method: 'POST', body: JSON.stringify({ level: level }) }).then(function (res) {
+            if (res.error) {
+              if (res.code === 'INSUFFICIENT_BALANCE') {
+                UI.toast('Insufficient balance. You need $' + price);
+              } else if (res.code === 'INVALID_INPUT') {
+                UI.toast('Cannot downgrade VIP level');
+              } else if (res.code === 'CONFLICT') {
+                UI.toast('Already at this VIP level');
+              } else {
+                UI.toast(res.error);
+              }
+              return;
+            }
+            if (res.user) {
+              DEMO.user = res.user;
+              DEMO.persist();
+            }
+            UI.toast(name + ' activated successfully!');
+            render();
+          }).catch(function () {
+            UI.toast('Failed to purchase package');
+          });
+        }
+      });
+    }
+
+    render();
+  </script>
+</body>
+</html>

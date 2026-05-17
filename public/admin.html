@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin · T-Video Media</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div id="appRoot"></div>
+
+  <template id="pageContent">
+    <h1 class="page-title">Admin Panel</h1>
+
+    <!-- Access denied (hidden by default) -->
+    <div id="accessDenied" class="card hidden" style="text-align:center;padding:48px;">
+      <div style="font-size:48px;margin-bottom:16px;">🚫</div>
+      <h2>Access Denied</h2>
+      <p class="muted">Admin privileges required to view this page.</p>
+      <a class="btn btn-primary" href="dashboard.html">Go to Dashboard</a>
+    </div>
+
+    <!-- Admin content (hidden until loaded) -->
+    <div id="adminContent" class="hidden">
+      <!-- Top stats -->
+      <div class="grid grid-4 mb-16">
+        <div class="stat"><div class="label">Total Users</div><div class="value" id="aTotalUsers">0</div></div>
+        <div class="stat"><div class="label">Total Deposits</div><div class="value" id="aDeposits">$0</div></div>
+        <div class="stat"><div class="label">Total Withdrawals</div><div class="value" id="aWithdraws">$0</div></div>
+        <div class="stat"><div class="label">Pending Withdrawals</div><div class="value" id="aPending">0</div></div>
+      </div>
+
+      <div class="grid grid-2 mb-16">
+        <!-- VIP distribution donut + legend -->
+        <div class="card">
+          <h3 class="mt-0">VIP Distribution</h3>
+          <div class="row-flex" style="align-items:flex-start;gap:24px;">
+            <div class="donut" id="donut" style="--p:0;"><span id="donutLbl">0%</span></div>
+            <div style="flex:1;" id="vipLegend"></div>
+          </div>
+        </div>
+
+        <!-- Weekly tasks bar chart -->
+        <div class="card">
+          <h3 class="mt-0">Weekly Task Completions</h3>
+          <div class="bars" id="bars"></div>
+          <div class="muted mt-16" style="font-size:12px;">Mon · Tue · Wed · Thu · Fri · Sat · Sun</div>
+        </div>
+      </div>
+
+      <!-- Withdrawal review -->
+      <div class="card mb-16">
+        <h3 class="mt-0">Withdrawal Review Queue</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>User</th><th>Amount</th><th>Address</th><th>Date</th><th>Action</th></tr>
+            </thead>
+            <tbody id="reviewRows">
+              <tr><td colspan="6" class="muted" style="text-align:center;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- User management -->
+      <div class="card mb-16">
+        <h3 class="mt-0">User Management</h3>
+        <div class="row-flex mb-16" style="gap:8px;">
+          <input class="input" id="userSearch" placeholder="Search users..." style="max-width:300px;" />
+          <button class="btn btn-primary" id="searchBtn">Search</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>Username</th><th>VIP</th><th>Balance</th><th>Status</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="userRows">
+              <tr><td colspan="6" class="muted" style="text-align:center;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="row-flex mt-16" style="justify-content:center;gap:8px;" id="userPagination"></div>
+      </div>
+
+      <!-- Broadcast Message -->
+      <div class="card mb-16">
+        <h3 class="mt-0">Broadcast Message</h3>
+        <form id="broadcastForm" autocomplete="off" novalidate>
+          <div class="field">
+            <label>Title</label>
+            <input class="input" id="bc_title" placeholder="Message title" required />
+          </div>
+          <div class="field">
+            <label>Body</label>
+            <textarea id="bc_body" rows="4" placeholder="Message content..." required></textarea>
+          </div>
+          <div class="field">
+            <label>Tag</label>
+            <select id="bc_tag">
+              <option value="System">System</option>
+              <option value="Promo">Promo</option>
+              <option value="VIP">VIP</option>
+              <option value="Alert">Alert</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary">Send Broadcast</button>
+        </form>
+      </div>
+
+      <!-- Support Tickets -->
+      <div class="card mb-16">
+        <h3 class="mt-0">Support Tickets</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>User</th><th>Subject</th><th>Status</th><th>Date</th></tr>
+            </thead>
+            <tbody id="supportRows">
+              <tr><td colspan="5" class="muted" style="text-align:center;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script>if (!localStorage.getItem('tvmd_token')) { location.href = 'login.html'; }</script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    UI.renderShell("Admin");
+
+    var currentUserPage = 1;
+    var userLimit = 20;
+
+    // Load admin stats
+    API.fetch('/api/admin/stats').then(function (res) {
+      if (res.error) {
+        if (res.code === 'FORBIDDEN' || res.code === 'UNAUTHORIZED') {
+          document.getElementById("accessDenied").classList.remove("hidden");
+          return;
+        }
+        UI.toast(res.error);
+        return;
+      }
+      document.getElementById("adminContent").classList.remove("hidden");
+      renderStats(res);
+      loadUsers(1);
+      loadSupport();
+    }).catch(function () {
+      document.getElementById("accessDenied").classList.remove("hidden");
+    });
+
+    function renderStats(data) {
+      document.getElementById("aTotalUsers").textContent = (data.totalUsers || 0).toLocaleString();
+      document.getElementById("aDeposits").textContent = "$" + (data.totalDeposits || 0).toLocaleString();
+      document.getElementById("aWithdraws").textContent = "$" + (data.totalWithdrawals || 0).toLocaleString();
+      document.getElementById("aPending").textContent = (data.pendingWithdrawals || 0).toLocaleString();
+
+      // VIP distribution donut
+      var vipDist = data.vipDistribution || [];
+      if (vipDist.length >= 2) {
+        var top2 = (vipDist[0].pct || 0) + (vipDist[1].pct || 0);
+        document.getElementById("donut").style.setProperty("--p", top2);
+        document.getElementById("donutLbl").textContent = top2 + "%";
+      }
+
+      var legend = document.getElementById("vipLegend");
+      legend.innerHTML = '';
+      vipDist.forEach(function (v) {
+        var row = document.createElement("div");
+        row.style.cssText = "display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--line);font-size:13px;";
+        row.innerHTML = '<span>' + escapeHtml(v.level || v.name || '') + '</span><span class="muted">' + (v.pct || 0) + '%</span>';
+        legend.appendChild(row);
+      });
+
+      // Bar chart
+      var bars = document.getElementById("bars");
+      bars.innerHTML = '';
+      var weeklyTasks = data.weeklyTasks || [];
+      var max = Math.max.apply(null, weeklyTasks.length ? weeklyTasks : [1]);
+      if (max === 0) max = 1;
+      var labels = ["M","T","W","T","F","S","S"];
+      weeklyTasks.forEach(function (v, i) {
+        var b = document.createElement("div");
+        b.className = "bar";
+        b.style.height = (v / max * 100) + "%";
+        b.dataset.label = labels[i] || '';
+        b.title = v + " tasks";
+        bars.appendChild(b);
+      });
+
+      // Pending review
+      renderPendingReview(data.pendingReview || []);
+    }
+
+    function renderPendingReview(reviews) {
+      var tbody = document.getElementById("reviewRows");
+      if (!reviews.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center;">No pending withdrawals</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      reviews.forEach(function (r) {
+        var tr = document.createElement("tr");
+        tr.id = 'review-' + r.id;
+        tr.innerHTML =
+          '<td>' + r.id + '</td>' +
+          '<td>' + escapeHtml(r.username || '--') + '</td>' +
+          '<td>$' + (r.amount || 0).toFixed(2) + '</td>' +
+          '<td><code>' + escapeHtml(r.address || '--') + '</code></td>' +
+          '<td>' + escapeHtml(r.date || '--') + '</td>' +
+          '<td>' +
+            '<button class="btn btn-sm btn-primary" data-act="approve" data-id="' + r.id + '">Approve</button> ' +
+            '<button class="btn btn-sm btn-danger" data-act="reject" data-id="' + r.id + '">Reject</button>' +
+          '</td>';
+        tbody.appendChild(tr);
+      });
+
+      tbody.addEventListener("click", function (e) {
+        var b = e.target.closest("button[data-act]");
+        if (!b) return;
+        var act = b.dataset.act;
+        var id = b.dataset.id;
+        var endpoint = '/api/admin/withdrawals/' + id + '/' + act;
+        API.fetch(endpoint, { method: 'POST' }).then(function (res) {
+          if (res.error) {
+            UI.toast(res.error);
+            return;
+          }
+          UI.toast('Withdrawal ' + act + 'd successfully');
+          var row = document.getElementById('review-' + id);
+          if (row) row.remove();
+          // Check if table is empty
+          if (!tbody.querySelector('tr')) {
+            tbody.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center;">No pending withdrawals</td></tr>';
+          }
+        }).catch(function () {
+          UI.toast('Action failed');
+        });
+      });
+    }
+
+    // User management
+    function loadUsers(page, search) {
+      currentUserPage = page;
+      var url = '/api/admin/users?page=' + page + '&limit=' + userLimit;
+      if (search) url += '&search=' + encodeURIComponent(search);
+
+      API.fetch(url).then(function (res) {
+        if (res.error) {
+          UI.toast(res.error);
+          return;
+        }
+        renderUsers(res.users || [], res.total || 0, res.page || page, res.limit || userLimit);
+      }).catch(function () {
+        UI.toast('Failed to load users');
+      });
+    }
+
+    function renderUsers(users, total, page, limit) {
+      var tbody = document.getElementById("userRows");
+      if (!users.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center;">No users found</td></tr>';
+        document.getElementById("userPagination").innerHTML = '';
+        return;
+      }
+      tbody.innerHTML = '';
+      users.forEach(function (u) {
+        var tr = document.createElement("tr");
+        var statusText = u.status || (u.frozen ? 'Frozen' : 'Active');
+        var cls = statusText === 'Active' ? 'badge-success' :
+                  statusText === 'Frozen' ? 'badge-danger' : 'badge-muted';
+        var freezeLabel = (statusText === 'Frozen' || u.frozen) ? 'Unfreeze' : 'Freeze';
+        tr.innerHTML =
+          '<td>#' + u.id + '</td>' +
+          '<td>' + escapeHtml(u.username || '--') + '</td>' +
+          '<td><span class="badge badge-gold">VIP ' + (u.vip !== undefined ? u.vip : u.vipLevel || 0) + '</span></td>' +
+          '<td>$' + (u.balance || 0).toFixed(2) + '</td>' +
+          '<td><span class="badge ' + cls + '">' + escapeHtml(statusText) + '</span></td>' +
+          '<td>' +
+            '<button class="btn btn-sm" data-act="view" data-uid="' + u.id + '">View</button> ' +
+            '<button class="btn btn-sm btn-warning" data-act="freeze" data-uid="' + u.id + '">' + freezeLabel + '</button>' +
+          '</td>';
+        tbody.appendChild(tr);
+      });
+
+      // Pagination
+      var totalPages = Math.ceil(total / limit);
+      var pag = document.getElementById("userPagination");
+      pag.innerHTML = '';
+      if (totalPages > 1) {
+        var prevBtn = document.createElement("button");
+        prevBtn.className = "btn btn-sm";
+        prevBtn.textContent = "Previous";
+        prevBtn.disabled = page <= 1;
+        prevBtn.addEventListener("click", function () { loadUsers(page - 1, document.getElementById("userSearch").value.trim()); });
+        pag.appendChild(prevBtn);
+
+        var info = document.createElement("span");
+        info.className = "muted";
+        info.textContent = "Page " + page + " of " + totalPages;
+        pag.appendChild(info);
+
+        var nextBtn = document.createElement("button");
+        nextBtn.className = "btn btn-sm";
+        nextBtn.textContent = "Next";
+        nextBtn.disabled = page >= totalPages;
+        nextBtn.addEventListener("click", function () { loadUsers(page + 1, document.getElementById("userSearch").value.trim()); });
+        pag.appendChild(nextBtn);
+      }
+    }
+
+    // User actions (View / Freeze)
+    document.getElementById("userRows").addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-act]");
+      if (!b) return;
+      var act = b.dataset.act;
+      var uid = b.dataset.uid;
+
+      if (act === 'view') {
+        API.fetch('/api/admin/users/' + uid).then(function (res) {
+          if (res.error) { UI.toast(res.error); return; }
+          var u = res.user || {};
+          var txCount = (res.transactions || []).length;
+          var wdCount = (res.withdrawals || []).length;
+          var html =
+            '<p><strong>Username:</strong> ' + escapeHtml(u.username || '--') + '</p>' +
+            '<p><strong>Email:</strong> ' + escapeHtml(u.email || '--') + '</p>' +
+            '<p><strong>Balance:</strong> $' + (u.balance || 0).toFixed(2) + '</p>' +
+            '<p><strong>VIP Level:</strong> ' + (u.vipLevel !== undefined ? u.vipLevel : u.vip || 0) + '</p>' +
+            '<p><strong>Referrals:</strong> ' + (res.referralCount || 0) + '</p>' +
+            '<p><strong>Recent Transactions:</strong> ' + txCount + '</p>' +
+            '<p><strong>Withdrawals:</strong> ' + wdCount + '</p>';
+          UI.openModal('User #' + uid, html, { confirmText: 'Close' });
+        }).catch(function () { UI.toast('Failed to load user'); });
+      }
+
+      if (act === 'freeze') {
+        API.fetch('/api/admin/users/' + uid + '/freeze', { method: 'POST' }).then(function (res) {
+          if (res.error) { UI.toast(res.error); return; }
+          var isFrozen = res.frozen;
+          UI.toast(isFrozen ? 'User frozen' : 'User unfrozen');
+          // Update button and badge in-place
+          var row = b.closest('tr');
+          var badge = row.querySelector('td:nth-child(5) .badge');
+          if (badge) {
+            badge.textContent = isFrozen ? 'Frozen' : 'Active';
+            badge.className = 'badge ' + (isFrozen ? 'badge-danger' : 'badge-success');
+          }
+          b.textContent = isFrozen ? 'Unfreeze' : 'Freeze';
+        }).catch(function () { UI.toast('Action failed'); });
+      }
+    });
+
+    // Search
+    document.getElementById("searchBtn").addEventListener("click", function () {
+      var query = document.getElementById("userSearch").value.trim();
+      loadUsers(1, query);
+    });
+    document.getElementById("userSearch").addEventListener("keydown", function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var query = e.target.value.trim();
+        loadUsers(1, query);
+      }
+    });
+
+    // Broadcast message
+    document.getElementById("broadcastForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var title = document.getElementById("bc_title").value.trim();
+      var body = document.getElementById("bc_body").value.trim();
+      var tag = document.getElementById("bc_tag").value;
+
+      if (!title || !body) {
+        UI.toast('Title and body are required');
+        return;
+      }
+
+      API.fetch('/api/admin/messages', {
+        method: 'POST',
+        body: JSON.stringify({ title: title, body: body, tag: tag })
+      }).then(function (res) {
+        if (res.error) { UI.toast(res.error); return; }
+        UI.toast('Broadcast sent successfully');
+        e.target.reset();
+      }).catch(function () {
+        UI.toast('Failed to send broadcast');
+      });
+    });
+
+    // Support tickets
+    function loadSupport() {
+      API.fetch('/api/admin/support').then(function (res) {
+        if (res.error) { return; }
+        renderSupport(res.tickets || []);
+      }).catch(function () {});
+    }
+
+    function renderSupport(tickets) {
+      var tbody = document.getElementById("supportRows");
+      if (!tickets.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="muted" style="text-align:center;">No tickets</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      tickets.forEach(function (t) {
+        var tr = document.createElement("tr");
+        var status = (t.status || 'Open').toLowerCase();
+        var badgeClass = 'badge-warning';
+        if (status === 'in progress' || status === 'in_progress') badgeClass = 'badge-success';
+        else if (status === 'closed') badgeClass = 'badge-muted';
+        var dateStr = t.date ? new Date(t.date).toLocaleDateString() : '--';
+        tr.innerHTML =
+          '<td>' + (t.id || '--') + '</td>' +
+          '<td>' + escapeHtml(t.username || t.user || '--') + '</td>' +
+          '<td>' + escapeHtml(t.subject || '--') + '</td>' +
+          '<td><span class="badge ' + badgeClass + '">' + escapeHtml(t.status || 'Open') + '</span></td>' +
+          '<td>' + dateStr + '</td>';
+        tbody.appendChild(tr);
+      });
+    }
+  </script>
+</body>
+</html>

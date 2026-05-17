@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Support · T-Video Media</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div id="appRoot"></div>
+
+  <template id="pageContent">
+    <h1 class="page-title">Support Center</h1>
+
+    <!-- Ticket form -->
+    <div class="card mb-16">
+      <h3 class="mt-0">Submit a Ticket</h3>
+      <form id="ticketForm" autocomplete="off" novalidate>
+        <div class="field">
+          <label>Subject</label>
+          <input class="input" id="t_subject" placeholder="Brief description of your issue" required />
+        </div>
+        <div class="field">
+          <label>Category</label>
+          <select id="t_cat">
+            <option>Withdrawal</option>
+            <option>VIP / Recharge</option>
+            <option>Tasks</option>
+            <option>Referrals</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Message</label>
+          <textarea id="t_msg" rows="5" placeholder="Describe your issue in detail..." required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Submit Ticket</button>
+      </form>
+    </div>
+
+    <!-- My Tickets -->
+    <div class="card">
+      <h3 class="mt-0">My Tickets</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Subject</th><th>Category</th><th>Status</th><th>Date</th></tr>
+          </thead>
+          <tbody id="ticketRows">
+            <tr><td colspan="4" class="muted" style="text-align:center;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </template>
+
+  <script>if (!localStorage.getItem('tvmd_token')) { location.href = 'login.html'; }</script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    UI.renderShell("Support");
+
+    // Submit ticket
+    document.getElementById("ticketForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var subject = document.getElementById("t_subject").value.trim();
+      var category = document.getElementById("t_cat").value;
+      var message = document.getElementById("t_msg").value.trim();
+
+      if (!subject || !message) {
+        UI.toast('Please fill in all required fields');
+        return;
+      }
+
+      API.fetch('/api/support/tickets', {
+        method: 'POST',
+        body: JSON.stringify({ subject: subject, category: category, message: message })
+      }).then(function (res) {
+        if (res.error) {
+          UI.toast(res.error);
+          return;
+        }
+        UI.toast('Ticket submitted successfully');
+        e.target.reset();
+        loadTickets();
+      }).catch(function () {
+        UI.toast('Failed to submit ticket');
+      });
+    });
+
+    // Load tickets
+    function loadTickets() {
+      API.fetch('/api/support/tickets').then(function (res) {
+        if (res.error) {
+          UI.toast(res.error);
+          return;
+        }
+        renderTickets(res.tickets || []);
+      }).catch(function () {
+        renderTickets([]);
+      });
+    }
+
+    function renderTickets(tickets) {
+      var tbody = document.getElementById("ticketRows");
+      if (!tickets.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center;">No tickets yet</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      tickets.forEach(function (t) {
+        var tr = document.createElement("tr");
+        var status = (t.status || 'Open').toLowerCase();
+        var badgeClass = 'badge-warning';
+        if (status === 'in progress' || status === 'in_progress') badgeClass = 'badge-success';
+        else if (status === 'closed') badgeClass = 'badge-muted';
+
+        var dateStr = t.date ? new Date(t.date).toLocaleDateString() : '--';
+        tr.innerHTML =
+          '<td>' + escapeHtml(t.subject || '--') + '</td>' +
+          '<td>' + escapeHtml(t.category || '--') + '</td>' +
+          '<td><span class="badge ' + badgeClass + '">' + escapeHtml(t.status || 'Open') + '</span></td>' +
+          '<td>' + dateStr + '</td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    loadTickets();
+  </script>
+</body>
+</html>

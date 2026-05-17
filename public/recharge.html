@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recharge · T-Video Media</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div id="appRoot"></div>
+
+  <template id="pageContent">
+    <h1 class="page-title">Recharge</h1>
+
+    <div class="grid grid-3 mb-16">
+      <label class="card pay-method" data-method="USDT" style="cursor:pointer;">
+        <div class="row-flex space-between">
+          <div>
+            <div style="font-weight:700;">USDT</div>
+            <div class="muted" style="font-size:13px;">Crypto</div>
+          </div>
+          <input type="radio" name="method" value="USDT" checked />
+        </div>
+      </label>
+      <label class="card pay-method" data-method="Bank Transfer" style="cursor:pointer;">
+        <div class="row-flex space-between">
+          <div>
+            <div style="font-weight:700;">Bank Transfer</div>
+            <div class="muted" style="font-size:13px;">Wire transfer</div>
+          </div>
+          <input type="radio" name="method" value="Bank Transfer" />
+        </div>
+      </label>
+      <label class="card pay-method" data-method="Card" style="cursor:pointer;">
+        <div class="row-flex space-between">
+          <div>
+            <div style="font-weight:700;">Card</div>
+            <div class="muted" style="font-size:13px;">Debit / Credit</div>
+          </div>
+          <input type="radio" name="method" value="Card" />
+        </div>
+      </label>
+    </div>
+
+    <div class="card">
+      <h3 class="mt-0">Recharge details</h3>
+      <form id="rechargeForm" autocomplete="off" novalidate>
+        <div class="field">
+          <label>Amount ($1 - $10,000)</label>
+          <input class="input" type="number" id="amount" min="1" max="10000" step="0.01" placeholder="50" required />
+        </div>
+        <button type="submit" class="btn btn-primary" id="submitBtn">Submit Recharge</button>
+      </form>
+    </div>
+  </template>
+
+  <script>if (!localStorage.getItem('tvmd_token')) { location.href = 'login.html'; }</script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    UI.renderShell("Recharge");
+
+    // Visual selection of payment method cards
+    document.querySelectorAll(".pay-method").forEach(el => {
+      el.addEventListener("click", () => {
+        document.querySelectorAll(".pay-method").forEach(c => c.style.borderColor = "");
+        el.style.borderColor = "var(--primary)";
+      });
+    });
+
+    document.getElementById("rechargeForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const amt = parseFloat(document.getElementById("amount").value || "0");
+      if (!amt || amt < 1) {
+        UI.toast("Minimum recharge is $1");
+        return;
+      }
+      if (amt > 10000) {
+        UI.toast("Maximum recharge is $10,000");
+        return;
+      }
+
+      const btn = document.getElementById("submitBtn");
+      btn.disabled = true;
+      btn.textContent = "Processing...";
+
+      API.fetch('/api/wallet/recharge', {
+        method: 'POST',
+        body: JSON.stringify({ amount: amt })
+      }).then(res => {
+        btn.disabled = false;
+        btn.textContent = "Submit Recharge";
+        if (res.ok && res.balance !== undefined) {
+          DEMO.user.balance = res.balance;
+          if (DEMO.persist) DEMO.persist();
+          UI.toast('Recharge successful! New balance: $' + res.balance.toFixed(2));
+          e.target.reset();
+        } else {
+          UI.toast(res.error || 'Recharge failed');
+        }
+      }).catch(err => {
+        btn.disabled = false;
+        btn.textContent = "Submit Recharge";
+        UI.toast('Recharge failed');
+      });
+    });
+  </script>
+</body>
+</html>
