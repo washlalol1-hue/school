@@ -39,10 +39,14 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Only handle /api/* routes
+    // Only handle /api/* routes - let Wrangler serve static assets
     if (!path.startsWith('/api/')) {
-      // Pass through to static assets
-      return env.ASSETS.fetch(request);
+      if (env.ASSETS) {
+        return env.ASSETS.fetch(request);
+      }
+      // If ASSETS binding not available (Wrangler serves assets directly),
+      // return 404 for any non-asset request that falls through
+      return new Response('Not found', { status: 404 });
     }
 
     // Handle CORS preflight
