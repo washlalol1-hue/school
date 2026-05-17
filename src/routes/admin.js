@@ -124,8 +124,8 @@ async function approveWithdrawal(env, withdrawalId) {
   }
   await env.DB.prepare("UPDATE withdrawals SET status = 'Completed' WHERE id = ?").bind(withdrawalId).run();
   await env.DB.prepare(
-    "UPDATE transactions SET status = 'Completed' WHERE user_id = ? AND type = 'Withdraw' AND amount = ? AND status = 'Pending'"
-  ).bind(wd.user_id, -wd.amount).run();
+    "UPDATE transactions SET status = 'Completed' WHERE user_id = ? AND type = 'Withdraw' AND status = 'Pending' AND description LIKE ?"
+  ).bind(wd.user_id, `Withdrawal #${withdrawalId}%`).run();
   return new Response(JSON.stringify({ ok: true }));
 }
 
@@ -136,8 +136,8 @@ async function rejectWithdrawal(env, withdrawalId) {
   }
   await env.DB.prepare("UPDATE withdrawals SET status = 'Rejected' WHERE id = ?").bind(withdrawalId).run();
   await env.DB.prepare(
-    "UPDATE transactions SET status = 'Rejected' WHERE user_id = ? AND type = 'Withdraw' AND amount = ? AND status = 'Pending'"
-  ).bind(wd.user_id, -wd.amount).run();
+    "UPDATE transactions SET status = 'Rejected' WHERE user_id = ? AND type = 'Withdraw' AND status = 'Pending' AND description LIKE ?"
+  ).bind(wd.user_id, `Withdrawal #${withdrawalId}%`).run();
   // Refund balance
   await env.DB.prepare(
     'UPDATE users SET balance = balance + ? WHERE id = ?'

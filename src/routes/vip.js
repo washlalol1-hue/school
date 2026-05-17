@@ -40,6 +40,14 @@ async function buyTier(request, env) {
     return new Response(JSON.stringify({ error: 'Invalid VIP level' }), { status: 400 });
   }
 
+  // Prevent downgrading to a lower level (but allow activating VIP 0 if user has no VIP yet)
+  if (level < user.vip_level) {
+    return new Response(JSON.stringify({ error: 'Cannot downgrade VIP level' }), { status: 400 });
+  }
+  if (level === user.vip_level && user.vip_level > 0) {
+    return new Response(JSON.stringify({ error: 'Already at this VIP level' }), { status: 400 });
+  }
+
   if (tier.price > 0 && user.balance < tier.price) {
     return new Response(JSON.stringify({ error: 'Insufficient balance' }), { status: 400 });
   }

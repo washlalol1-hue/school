@@ -1,14 +1,14 @@
 // JWT and password utilities for T-Video Media Demo
 // Uses Web Crypto API (available in Cloudflare Workers)
 
-const JWT_SECRET = 'tvmd-demo-secret-key-2025';
+const DEFAULT_SECRET = 'tvmd-demo-secret-key-2025';
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-async function getKey() {
+async function getKey(secret) {
   return crypto.subtle.importKey(
     'raw',
-    encoder.encode(JWT_SECRET),
+    encoder.encode(secret || DEFAULT_SECRET),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign', 'verify']
@@ -31,7 +31,7 @@ function base64urlDecode(str) {
   return bytes;
 }
 
-export async function createJWT(payload) {
+export async function createJWT(payload, secret) {
   const header = { alg: 'HS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
   const claims = { ...payload, iat: now, exp: now + 86400 * 7 };
@@ -40,18 +40,18 @@ export async function createJWT(payload) {
   const payloadB64 = base64url(encoder.encode(JSON.stringify(claims)));
   const data = `${headerB64}.${payloadB64}`;
 
-  const key = await getKey();
+  const key = await getKey(secret);
   const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(data));
   return `${data}.${base64url(sig)}`;
 }
 
-export async function verifyJWT(token) {
+export async function verifyJWT(token, secret) {
   if (!token) return null;
   const parts = token.split('.');
   if (parts.length !== 3) return null;
 
   try {
-    const key = await getKey();
+    const key = await getKey(secret);
     const data = `${parts[0]}.${parts[1]}`;
     const sig = base64urlDecode(parts[2]);
     const valid = await crypto.subtle.verify('HMAC', key, sig, encoder.encode(data));
@@ -106,7 +106,8 @@ export async function authMiddleware(request, env) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
   const token = authHeader.slice(7);
-  const payload = await verifyJWT(token);
+  const secret = env.JWT_SECRET || DEFAULT_SECRET;
+  const payload = await verifyJWT(token, secret);
   if (!payload || !payload.userId) return null;
 
   const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(payload.userId).first();

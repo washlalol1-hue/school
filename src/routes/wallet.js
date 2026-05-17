@@ -39,21 +39,29 @@ async function withdraw(request, env) {
     return new Response(JSON.stringify({ error: 'Insufficient balance' }), { status: 400 });
   }
 
-  // Deduct balance
-  await updateBalance(env.DB, user.id, -amount);
+  // Atomic balance deduction: only succeeds if balance is sufficient
+  const deductResult = await env.DB.prepare(
+    'UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?'
+  ).bind(amount, user.id, amount).run();
+
+  if (!deductResult.meta.changes) {
+    return new Response(JSON.stringify({ error: 'Insufficient balance' }), { status: 400 });
+  }
 
   // Create withdrawal record
-  await env.DB.prepare(
+  const wdResult = await env.DB.prepare(
     'INSERT INTO withdrawals (user_id, amount, address, status) VALUES (?, ?, ?, ?)'
   ).bind(user.id, amount, address, 'Pending').run();
 
-  // Create transaction
+  const withdrawalId = wdResult.meta.last_row_id;
+
+  // Create transaction with withdrawal_id in description for unambiguous matching
   await addTransaction(env.DB, {
     userId: user.id,
     type: 'Withdraw',
     amount: -amount,
     status: 'Pending',
-    description: `Withdrawal to ${address}`,
+    description: `Withdrawal #${withdrawalId} to ${address}`,
   });
 
   const updatedUser = await getUser(env.DB, user.id);

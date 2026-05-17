@@ -26,10 +26,25 @@ export async function getUserByInviteCode(db, code) {
 }
 
 export async function createUser(db, { username, email, passwordHash, inviteCode, invitedBy }) {
-  const result = await db.prepare(
-    'INSERT INTO users (username, email, password_hash, invite_code, invited_by) VALUES (?, ?, ?, ?, ?)'
-  ).bind(username, email, passwordHash, inviteCode, invitedBy || null).run();
-  return result.meta.last_row_id;
+  // Retry up to 3 times in case of invite_code UNIQUE constraint collision
+  let attempts = 0;
+  let code = inviteCode;
+  while (attempts < 3) {
+    try {
+      const result = await db.prepare(
+        'INSERT INTO users (username, email, password_hash, invite_code, invited_by) VALUES (?, ?, ?, ?, ?)'
+      ).bind(username, email, passwordHash, code, invitedBy || null).run();
+      return result.meta.last_row_id;
+    } catch (err) {
+      if (err.message && err.message.includes('UNIQUE') && err.message.includes('invite_code')) {
+        attempts++;
+        code = generateInviteCode();
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw new Error('Failed to generate unique invite code after 3 attempts');
 }
 
 export async function updateBalance(db, userId, amount) {

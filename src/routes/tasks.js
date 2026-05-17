@@ -1,6 +1,6 @@
 // Tasks routes: list daily tasks, complete a task
 import { authMiddleware } from '../auth.js';
-import { getVipTier, getCompletedTasksToday, completeTask, updateBalance, updateTodayEarnings, addTransaction, getUser, todayStr } from '../db.js';
+import { getVipTier, getCompletedTasksToday, updateBalance, updateTodayEarnings, addTransaction, getUser, todayStr } from '../db.js';
 
 export async function handleTasks(request, env, path) {
   if (path === '/api/tasks' && request.method === 'GET') {
@@ -114,8 +114,14 @@ async function doComplete(request, env, taskId) {
 
   const reward = Math.round((tier.daily_income / tier.daily_tasks) * 100) / 100;
 
-  // Complete the task
-  await completeTask(env.DB, user.id, taskId, today, reward);
+  // Atomically insert task completion using INSERT OR IGNORE on UNIQUE(user_id, task_id, date)
+  const insertResult = await env.DB.prepare(
+    'INSERT OR IGNORE INTO tasks_completed (user_id, task_id, date, reward) VALUES (?, ?, ?, ?)'
+  ).bind(user.id, taskId, today, reward).run();
+
+  if (!insertResult.meta.changes) {
+    return new Response(JSON.stringify({ error: 'Task already completed' }), { status: 400 });
+  }
 
   // Update user balance and earnings
   await updateBalance(env.DB, user.id, reward);

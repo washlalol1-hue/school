@@ -78,7 +78,7 @@ async function register(request, env) {
     }
   }
 
-  const token = await createJWT({ userId });
+  const token = await createJWT({ userId }, env.JWT_SECRET);
   const user = await getUser(env.DB, userId);
   return new Response(JSON.stringify({ token, user: sanitizeUser(user) }), { status: 201 });
 }
@@ -110,7 +110,7 @@ async function login(request, env) {
     return new Response(JSON.stringify({ error: 'Invalid credentials' }), { status: 401 });
   }
 
-  const token = await createJWT({ userId: user.id });
+  const token = await createJWT({ userId: user.id }, env.JWT_SECRET);
   return new Response(JSON.stringify({ token, user: sanitizeUser(user) }));
 }
 
