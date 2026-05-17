@@ -47,7 +47,7 @@
         }
         banner.innerHTML =
           '<div class="notice info">' +
-            'Active package: <strong>' + active.name + '</strong> · ' + active.daily + ' daily tasks' +
+            'Active package: <strong>' + escapeHtml(active.name) + '</strong> · ' + active.daily + ' daily tasks' +
             ' · reward $' + rewardPerTask.toFixed(2) + ' per task' +
             expiresHtml +
             ' · <a href="tasks.html">go to tasks</a>' +
@@ -69,7 +69,7 @@
 
         card.innerHTML =
           '<div class="row-flex space-between">' +
-            '<h3>' + v.name + '</h3>' +
+            '<h3>' + escapeHtml(v.name) + '</h3>' +
             '<div class="row-flex">' + badges.join("") + '</div>' +
           '</div>' +
           '<div class="price">$' + v.price.toLocaleString() + '</div>' +
@@ -80,7 +80,7 @@
             '<li>\uD83D\uDCC5 Monthly income: $' + v.monthlyIncome.toLocaleString() + '</li>' +
           '</ul>' +
           '<button class="btn btn-primary btn-block buy-btn"' +
-            ' data-level="' + v.level + '" data-name="' + v.name + '" data-price="' + v.price + '"' +
+            ' data-level="' + v.level + '" data-name="' + escapeHtml(v.name) + '" data-price="' + v.price + '"' +
             (isActive ? ' disabled style="opacity:.6;cursor:not-allowed;"' : '') + '>' +
             (isActive ? "Currently active" : (v.free ? "Activate free tier" : "Buy package")) +
           '</button>';
