@@ -46,7 +46,7 @@
     { label: 'Messages', icon: '💬', href: 'messages.html' },
     { label: 'Support', icon: '🛟', href: 'support.html' },
     { label: 'Settings', icon: '⚙️', href: 'settings.html' },
-    { label: 'Admin Demo', icon: '🛡️', href: 'admin.html' },
+    { label: 'Admin', icon: '🛡️', href: 'admin.html' },
     { label: 'Scam Analysis', icon: '📖', href: 'scam-analysis.html' },
   ];
 
