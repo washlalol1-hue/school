@@ -1,27 +1,20 @@
-<!--
-  Withdraw Demo - T-Video Media Demo
-
-  Now uses the real demo balance from STATE. Submitting deducts the
-  amount, creates a "Pending" record in withdrawals + transactions,
-  and renders both lists live.
--->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Withdraw · T-Video Media Demo</title>
+  <title>Withdraw · T-Video Media</title>
   <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
 <body>
   <div id="appRoot"></div>
 
   <template id="pageContent">
-    <h1 class="page-title">Withdraw (Demo)</h1>
+    <h1 class="page-title">Withdraw</h1>
 
     <div class="grid grid-2 mb-16">
       <div class="stat">
-        <div class="label">Available demo balance</div>
+        <div class="label">Available balance</div>
         <div class="value" id="bal">$0.00</div>
         <div class="delta">Earned from completing daily tasks</div>
       </div>
@@ -33,36 +26,24 @@
     </div>
 
     <div class="card mb-16">
-      <h3 class="mt-0">Request withdrawal (demo)</h3>
+      <h3 class="mt-0">Request withdrawal</h3>
       <form id="wdForm" autocomplete="off" novalidate>
         <div class="grid grid-2">
           <div class="field">
-            <label>Amount (demo)</label>
-            <input class="input" id="wdAmt" type="number" min="1" step="0.01" placeholder="10" required />
+            <label>Amount (min $5)</label>
+            <input class="input" id="wdAmt" type="number" min="5" step="0.01" placeholder="10" required />
           </div>
           <div class="field">
-            <label>Payment address (demo)</label>
-            <input class="input" id="wdAddr" placeholder="demo-addr-xxxxxxxx" required />
+            <label>Payment address</label>
+            <input class="input" id="wdAddr" placeholder="Your wallet or account address" required />
           </div>
         </div>
-        <div class="field">
-          <label>Withdrawal password (demo)</label>
-          <input class="input" id="wdPw" type="password" placeholder="Any text - not validated" required />
-        </div>
-        <button class="btn btn-primary" type="submit">Submit withdrawal (Demo)</button>
+        <button class="btn btn-primary" type="submit" id="wdSubmitBtn">Submit withdrawal</button>
       </form>
     </div>
 
-    <div class="notice danger">
-      <strong>Educational warning:</strong> Many scam platforms allow small
-      early withdrawals to build trust, then later block larger withdrawals
-      or demand extra deposits ("VIP fee", "tax", "verification") before
-      releasing funds. If a platform ever charges you to withdraw your own
-      money, that is a scam.
-    </div>
-
     <div class="card mt-16">
-      <h3 class="mt-0">Withdrawal history (demo)</h3>
+      <h3 class="mt-0">Withdrawal history</h3>
       <div class="table-wrap">
         <table>
           <thead>
@@ -71,11 +52,6 @@
           <tbody id="wdRows"></tbody>
         </table>
       </div>
-    </div>
-
-    <div class="disclaimer mt-16">
-      Educational demo for scam-awareness research. No real money, no real
-      accounts, no real rewards.
     </div>
   </template>
 
@@ -95,24 +71,29 @@
       return `<span class="badge ${map[s] || "badge-muted"}">${s}</span>`;
     }
 
-    function render() {
-      document.getElementById("bal").textContent = "$" + DEMO.user.balance.toFixed(2);
-      const last = DEMO.withdrawals[0];
-      document.getElementById("wdStatus").innerHTML =
-        last ? statusBadge(last.status) : `<span class="badge badge-muted">No requests yet</span>`;
-      document.getElementById("wdSubtitle").textContent =
-        last ? `$${last.amount.toFixed(2)} requested on ${last.date}` : "Submit one below to see it here";
+    function renderBalance() {
+      document.getElementById("bal").textContent = "$" + (DEMO.user.balance || 0).toFixed(2);
+    }
 
+    function renderHistory(withdrawals) {
       const tbody = document.getElementById("wdRows");
       tbody.innerHTML = "";
-      if (!DEMO.withdrawals.length) {
+      if (!withdrawals || !withdrawals.length) {
         tbody.innerHTML = `<tr><td colspan="4" class="muted center">No withdrawal requests yet.</td></tr>`;
+        document.getElementById("wdStatus").innerHTML = `<span class="badge badge-muted">No requests yet</span>`;
+        document.getElementById("wdSubtitle").textContent = "Submit one below to see it here";
         return;
       }
-      DEMO.withdrawals.forEach(w => {
+
+      const last = withdrawals[0];
+      document.getElementById("wdStatus").innerHTML = statusBadge(last.status);
+      document.getElementById("wdSubtitle").textContent =
+        `$${last.amount.toFixed(2)} requested on ${last.date || ''}`;
+
+      withdrawals.forEach(w => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${w.date}</td>
+          <td>${w.date || ''}</td>
           <td>$${w.amount.toFixed(2)}</td>
           <td><code>${w.address}</code></td>
           <td>${statusBadge(w.status)}</td>
@@ -120,25 +101,66 @@
         tbody.appendChild(tr);
       });
     }
-    render();
+
+    // Initial render from cached data
+    renderBalance();
+
+    // Load withdrawal history from API
+    API.fetch('/api/wallet/withdrawals').then(res => {
+      if (res.withdrawals) {
+        renderHistory(res.withdrawals);
+      }
+    }).catch(() => {});
 
     document.getElementById("wdForm").addEventListener("submit", (e) => {
       e.preventDefault();
-      const amt  = parseFloat(document.getElementById("wdAmt").value || "0");
-      const addr = document.getElementById("wdAddr").value.trim() || "demo-addr-xxxx";
-      const r = DEMO.api.submitWithdraw(amt, addr);
-      if (!r.ok) { UI.toast(r.error); return; }
-      e.target.reset();
-      render();
+      const amt = parseFloat(document.getElementById("wdAmt").value || "0");
+      const addr = document.getElementById("wdAddr").value.trim();
 
-      UI.openModal(
-        "Withdrawal submitted (Demo)",
-        `<p>Status: <span class="badge badge-warning">Pending review</span></p>
-         <p>Educational note: many scam platforms allow small early
-         withdrawals, then later block larger withdrawals or demand extra
-         deposits before releasing funds.</p>`,
-        { confirmText: "OK" }
-      );
+      if (!amt || amt <= 0) {
+        UI.toast("Enter a valid amount");
+        return;
+      }
+      if (!addr) {
+        UI.toast("Address is required");
+        return;
+      }
+
+      const btn = document.getElementById("wdSubmitBtn");
+      btn.disabled = true;
+      btn.textContent = "Processing...";
+
+      API.fetch('/api/wallet/withdraw', {
+        method: 'POST',
+        body: JSON.stringify({ amount: amt, address: addr })
+      }).then(res => {
+        btn.disabled = false;
+        btn.textContent = "Submit withdrawal";
+        if (res.ok) {
+          UI.toast("Withdrawal submitted successfully!");
+          e.target.reset();
+          // Refresh balance
+          API.fetch('/api/auth/me').then(meRes => {
+            if (meRes.user) {
+              DEMO.user = meRes.user;
+              if (DEMO.persist) DEMO.persist();
+              renderBalance();
+            }
+          }).catch(() => {});
+          // Refresh history
+          API.fetch('/api/wallet/withdrawals').then(wdRes => {
+            if (wdRes.withdrawals) {
+              renderHistory(wdRes.withdrawals);
+            }
+          }).catch(() => {});
+        } else {
+          UI.toast(res.error || 'Withdrawal failed');
+        }
+      }).catch(err => {
+        btn.disabled = false;
+        btn.textContent = "Submit withdrawal";
+        UI.toast('Withdrawal failed');
+      });
     });
   </script>
 </body>

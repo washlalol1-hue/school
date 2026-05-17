@@ -1,22 +1,16 @@
-<!--
-  Transaction History - T-Video Media Demo
-
-  Shows real transaction records from STATE.transactions (task rewards,
-  package activations, withdrawals). Tabs filter by type.
--->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Transaction History · T-Video Media Demo</title>
+  <title>Transaction History · T-Video Media</title>
   <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
 <body>
   <div id="appRoot"></div>
 
   <template id="pageContent">
-    <h1 class="page-title">Transaction History (Demo)</h1>
+    <h1 class="page-title">Transaction History</h1>
 
     <div class="tabs" id="tabs">
       <button class="tab active" data-filter="All">All</button>
@@ -38,11 +32,11 @@
           <tbody id="txRows"></tbody>
         </table>
       </div>
-    </div>
-
-    <div class="disclaimer mt-16">
-      Educational demo for scam-awareness research. No real money, no real
-      accounts, no real rewards.
+      <div class="row-flex space-between mt-16" id="pagination" style="display:none;">
+        <button class="btn btn-sm" id="prevBtn" disabled>Previous</button>
+        <span class="muted" id="pageInfo">Page 1 of 1</span>
+        <button class="btn btn-sm" id="nextBtn" disabled>Next</button>
+      </div>
     </div>
   </template>
 
@@ -51,6 +45,10 @@
   <script src="assets/js/app.js"></script>
   <script>
     UI.renderShell("Transaction History");
+
+    let currentFilter = "All";
+    let currentPage = 1;
+    let totalPages = 1;
 
     function statusBadge(s) {
       const map = {
@@ -62,40 +60,72 @@
       return `<span class="badge ${map[s] || "badge-muted"}">${s}</span>`;
     }
 
-    function render(filter) {
+    function loadTransactions(filter, page) {
+      currentFilter = filter;
+      currentPage = page;
       const tbody = document.getElementById("txRows");
-      tbody.innerHTML = "";
-      const rows = DEMO.transactions.filter(t =>
-        filter === "All" ? true : t.type === filter
-      );
-      if (!rows.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="muted center">No demo records yet — complete a task or buy a package to populate this list.</td></tr>`;
-        return;
+      tbody.innerHTML = `<tr><td colspan="5" class="muted center">Loading...</td></tr>`;
+
+      let url = '/api/transactions?page=' + page + '&limit=20';
+      if (filter && filter !== 'All') {
+        url += '&type=' + encodeURIComponent(filter);
       }
-      rows.forEach(t => {
-        const tr = document.createElement("tr");
-        const sign = t.amount >= 0 ? "+" : "-";
-        const cls = t.amount >= 0 ? "badge-success" : "badge-warning";
-        tr.innerHTML = `
-          <td>${t.date}</td>
-          <td>${t.type}</td>
-          <td><span class="badge ${cls}">${sign}$${Math.abs(t.amount).toFixed(2)}</span></td>
-          <td>${statusBadge(t.status)}</td>
-          <td class="muted">${t.desc}</td>
-        `;
-        tbody.appendChild(tr);
+
+      API.fetch(url).then(res => {
+        tbody.innerHTML = "";
+        if (res.transactions && res.transactions.length) {
+          totalPages = res.totalPages || 1;
+          res.transactions.forEach(t => {
+            const tr = document.createElement("tr");
+            const sign = t.amount >= 0 ? "+" : "-";
+            const cls = t.amount >= 0 ? "badge-success" : "badge-warning";
+            tr.innerHTML = `
+              <td>${t.date || ''}</td>
+              <td>${t.type || ''}</td>
+              <td><span class="badge ${cls}">${sign}$${Math.abs(t.amount).toFixed(2)}</span></td>
+              <td>${statusBadge(t.status)}</td>
+              <td class="muted">${t.desc || ''}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        } else {
+          totalPages = 1;
+          tbody.innerHTML = `<tr><td colspan="5" class="muted center">No transactions found</td></tr>`;
+        }
+        updatePagination();
+      }).catch(() => {
+        tbody.innerHTML = `<tr><td colspan="5" class="muted center">Failed to load transactions</td></tr>`;
       });
     }
+
+    function updatePagination() {
+      const pag = document.getElementById("pagination");
+      if (totalPages <= 1) {
+        pag.style.display = "none";
+        return;
+      }
+      pag.style.display = "";
+      document.getElementById("pageInfo").textContent = "Page " + currentPage + " of " + totalPages;
+      document.getElementById("prevBtn").disabled = currentPage <= 1;
+      document.getElementById("nextBtn").disabled = currentPage >= totalPages;
+    }
+
+    document.getElementById("prevBtn").addEventListener("click", () => {
+      if (currentPage > 1) loadTransactions(currentFilter, currentPage - 1);
+    });
+    document.getElementById("nextBtn").addEventListener("click", () => {
+      if (currentPage < totalPages) loadTransactions(currentFilter, currentPage + 1);
+    });
 
     document.querySelectorAll(".tab").forEach(btn => {
       btn.addEventListener("click", () => {
         document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
-        render(btn.dataset.filter);
+        loadTransactions(btn.dataset.filter, 1);
       });
     });
 
-    render("All");
+    loadTransactions("All", 1);
   </script>
 </body>
 </html>
