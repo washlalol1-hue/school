@@ -181,17 +181,19 @@ async function deleteAccount(request, env) {
     return errorResponse('Incorrect password', 'INVALID_PASSWORD');
   }
 
-  // Delete all associated data in order
-  await env.DB.prepare('DELETE FROM tasks_completed WHERE user_id = ?').bind(user.id).run();
-  await env.DB.prepare('DELETE FROM transactions WHERE user_id = ?').bind(user.id).run();
-  await env.DB.prepare('DELETE FROM withdrawals WHERE user_id = ?').bind(user.id).run();
-  await env.DB.prepare('DELETE FROM support_tickets WHERE user_id = ?').bind(user.id).run();
-  await env.DB.prepare('DELETE FROM support_replies WHERE user_id = ?').bind(user.id).run();
-  await env.DB.prepare('DELETE FROM referrals WHERE inviter_id = ? OR invitee_id = ?').bind(user.id, user.id).run();
-  await env.DB.prepare('DELETE FROM messages WHERE target_user_id = ?').bind(user.id).run();
-  await env.DB.prepare('DELETE FROM activity_log WHERE user_id = ?').bind(user.id).run();
-  await env.DB.prepare('DELETE FROM login_attempts WHERE identifier = ?').bind(user.username).run();
-  await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id).run();
+  // Delete all associated data atomically using batch
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM tasks_completed WHERE user_id = ?').bind(user.id),
+    env.DB.prepare('DELETE FROM transactions WHERE user_id = ?').bind(user.id),
+    env.DB.prepare('DELETE FROM withdrawals WHERE user_id = ?').bind(user.id),
+    env.DB.prepare('DELETE FROM support_tickets WHERE user_id = ?').bind(user.id),
+    env.DB.prepare('DELETE FROM support_replies WHERE user_id = ?').bind(user.id),
+    env.DB.prepare('DELETE FROM referrals WHERE inviter_id = ? OR invitee_id = ?').bind(user.id, user.id),
+    env.DB.prepare('DELETE FROM messages WHERE target_user_id = ?').bind(user.id),
+    env.DB.prepare('DELETE FROM activity_log WHERE user_id = ?').bind(user.id),
+    env.DB.prepare('DELETE FROM login_attempts WHERE identifier = ?').bind(user.username),
+    env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id),
+  ]);
 
   return new Response(JSON.stringify({ ok: true, code: 'ACCOUNT_DELETED' }));
 }

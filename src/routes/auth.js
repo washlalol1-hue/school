@@ -125,6 +125,11 @@ async function login(request, env) {
     return new Response(JSON.stringify({ error: 'Username and password are required', code: 'INVALID_INPUT' }), { status: 400 });
   }
 
+  // Cleanup old login attempts on every login attempt to prevent unbounded table growth
+  await env.DB.prepare(
+    "DELETE FROM login_attempts WHERE attempt_time < datetime('now', '-1 hour')"
+  ).run();
+
   // Rate limiting: check failed attempts in last 15 minutes
   const failedAttempts = await env.DB.prepare(
     "SELECT COUNT(*) as cnt FROM login_attempts WHERE identifier = ? AND success = 0 AND attempt_time > datetime('now', '-15 minutes')"
@@ -174,11 +179,6 @@ async function login(request, env) {
   await env.DB.prepare(
     "UPDATE users SET last_login_at = datetime('now'), login_count = login_count + 1, last_login_date = ? WHERE id = ?"
   ).bind(todayDate, user.id).run();
-
-  // Background cleanup: old login attempts
-  await env.DB.prepare(
-    "DELETE FROM login_attempts WHERE attempt_time < datetime('now', '-1 hour')"
-  ).run();
 
   // Cleanup expired password reset tokens
   await env.DB.prepare(
@@ -231,6 +231,8 @@ async function forgotPassword(request, env) {
     'UPDATE users SET password_reset_token = ?, password_reset_expires = ? WHERE id = ?'
   ).bind(token, expires, user.id).run();
 
+  // NOTE: Demo-only behavior. In production, the reset token must be sent via email/SMS,
+  // never returned directly in the API response body.
   return new Response(JSON.stringify({
     message: 'Reset token generated. Since this is a demo without email service, the token is returned directly.',
     token: token
@@ -270,7 +272,7 @@ async function resetPassword(request, env) {
   const passwordHash = await hashPassword(newPassword);
 
   await env.DB.prepare(
-    'UPDATE users SET password_hash = ?, password_reset_token = NULL, password_reset_expires = NULL WHERE id = ?'
+    'UPDATE users SET password_hash = ?, password_reset_token = NULL, password_reset_expires = NULL, token_version = token_version + 1 WHERE id = ?'
   ).bind(passwordHash, user.id).run();
 
   return new Response(JSON.stringify({ message: 'Password has been reset successfully' }));

@@ -184,16 +184,19 @@ async function deleteUser(env, userId) {
   if (!user) {
     return new Response(JSON.stringify({ error: 'User not found', code: 'NOT_FOUND' }), { status: 404 });
   }
-  await env.DB.prepare('DELETE FROM tasks_completed WHERE user_id = ?').bind(userId).run();
-  await env.DB.prepare('DELETE FROM transactions WHERE user_id = ?').bind(userId).run();
-  await env.DB.prepare('DELETE FROM withdrawals WHERE user_id = ?').bind(userId).run();
-  await env.DB.prepare('DELETE FROM support_tickets WHERE user_id = ?').bind(userId).run();
-  await env.DB.prepare('DELETE FROM support_replies WHERE user_id = ?').bind(userId).run();
-  await env.DB.prepare('DELETE FROM referrals WHERE inviter_id = ? OR invitee_id = ?').bind(userId, userId).run();
-  await env.DB.prepare('DELETE FROM messages WHERE target_user_id = ?').bind(userId).run();
-  await env.DB.prepare('DELETE FROM activity_log WHERE user_id = ?').bind(userId).run();
-  await env.DB.prepare('DELETE FROM login_attempts WHERE identifier = ?').bind(user.username).run();
-  await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
+  // Delete all associated data atomically using batch
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM tasks_completed WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM transactions WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM withdrawals WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM support_tickets WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM support_replies WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM referrals WHERE inviter_id = ? OR invitee_id = ?').bind(userId, userId),
+    env.DB.prepare('DELETE FROM messages WHERE target_user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM activity_log WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM login_attempts WHERE identifier = ?').bind(user.username),
+    env.DB.prepare('DELETE FROM users WHERE id = ?').bind(userId),
+  ]);
   return new Response(JSON.stringify({ ok: true }));
 }
 

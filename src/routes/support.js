@@ -42,10 +42,12 @@ async function create(request, env) {
   }
 
   const cleanSubject = sanitizeInput(subject);
+  const cleanMessage = sanitizeInput(message);
+  const cleanCategory = sanitizeInput(category || 'Other');
 
   await env.DB.prepare(
     'INSERT INTO support_tickets (user_id, subject, category, message) VALUES (?, ?, ?, ?)'
-  ).bind(user.id, cleanSubject, category || 'Other', message).run();
+  ).bind(user.id, cleanSubject, cleanCategory, cleanMessage).run();
 
   return new Response(JSON.stringify({ ok: true }), { status: 201 });
 }

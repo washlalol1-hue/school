@@ -58,19 +58,6 @@ async function withdraw(request, env) {
     return errorResponse('Daily withdrawal limit is $5000', 'DAILY_LIMIT');
   }
 
-  // 24h cooldown check
-  const lastWithdrawal = await env.DB.prepare(
-    'SELECT created_at FROM withdrawals WHERE user_id = ? ORDER BY created_at DESC LIMIT 1'
-  ).bind(user.id).first();
-
-  if (lastWithdrawal && lastWithdrawal.created_at) {
-    const lastTime = new Date(lastWithdrawal.created_at).getTime();
-    const now = Date.now();
-    if (now - lastTime < 24 * 60 * 60 * 1000) {
-      return errorResponse('Must wait 24 hours between withdrawals', 'COOLDOWN');
-    }
-  }
-
   // Atomic balance deduction: only succeeds if balance is sufficient
   const deductResult = await env.DB.prepare(
     'UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?'
@@ -155,10 +142,7 @@ async function recharge(request, env) {
   }
 
   const { amount } = body;
-  if (!amount || amount <= 0) {
-    return new Response(JSON.stringify({ error: 'Invalid amount', code: 'INVALID_INPUT' }), { status: 400 });
-  }
-  if (amount < 1) {
+  if (!amount || amount < 1) {
     return errorResponse('Minimum recharge is $1', 'INVALID_AMOUNT');
   }
   if (amount > 10000) {
