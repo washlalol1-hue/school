@@ -78,9 +78,8 @@
             alert(data.error || 'Login failed');
           }
         })
-        .catch(function () {
-          // Offline fallback: just redirect for demo
-          location.href = 'dashboard.html';
+        .catch(function (err) {
+          alert('Unable to connect to server. Please try again later.');
         });
     });
     document.getElementById("forgotLink").addEventListener("click", function (e) {

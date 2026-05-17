@@ -50,6 +50,13 @@
     { label: 'Scam Analysis', icon: '📖', href: 'scam-analysis.html' },
   ];
 
+  // ---- Logout helper ----
+  UI.logout = function () {
+    localStorage.removeItem('tvmd_token');
+    localStorage.removeItem('tvmd_cache');
+    window.location.href = 'login.html';
+  };
+
   UI.renderShell = function (activeTitle) {
     var root = document.getElementById('appRoot');
     if (!root) return;
@@ -66,11 +73,22 @@
       nav.appendChild(a);
     });
 
+    // Logout button at bottom of sidebar
+    var logoutDiv = document.createElement('div');
+    logoutDiv.style.cssText = 'padding:12px 16px;margin-top:auto;border-top:1px solid var(--line);';
+    var logoutBtn = document.createElement('button');
+    logoutBtn.className = 'btn btn-danger';
+    logoutBtn.style.cssText = 'width:100%;';
+    logoutBtn.textContent = '🚪  Logout';
+    logoutBtn.addEventListener('click', UI.logout);
+    logoutDiv.appendChild(logoutBtn);
+    sidebar.appendChild(logoutDiv);
+
     var main = document.createElement('div');
     main.className = 'main-area';
     var topbar = document.createElement('header');
     topbar.className = 'topbar';
-    topbar.innerHTML = '<h2>' + (activeTitle || '') + '</h2><a class="btn btn-sm" href="settings.html">Settings</a>';
+    topbar.innerHTML = '<h2>' + (activeTitle || '') + '</h2><div class="topbar-actions"><a class="btn btn-sm" href="settings.html">Settings</a><button class="btn btn-sm btn-danger" id="topbarLogout">Logout</button></div>';
     main.appendChild(topbar);
 
     var content = document.createElement('main');
@@ -82,6 +100,9 @@
     shell.appendChild(sidebar);
     shell.appendChild(main);
     root.appendChild(shell);
+
+    // Bind topbar logout
+    document.getElementById('topbarLogout').addEventListener('click', UI.logout);
 
     // Move template content into main content area
     var tpl = document.getElementById('pageContent');
