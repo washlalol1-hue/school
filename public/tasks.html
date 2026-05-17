@@ -1,24 +1,9 @@
-<!--
-  Video Tasks - T-Video Media Demo
-
-  - Locked behind package selection (VIP page).
-  - Number of tasks per day = vip.daily.
-  - Reward per task = vip.dailyIncome / vip.daily, so completing
-    every task gives exactly the daily-income figure shown on the VIP
-    card. Total over the package's run mirrors the "monthly income"
-    promise the VIP table makes - intentionally, because that promise
-    is the same scam pattern the project is teaching about.
-  - Tasks reset every calendar day (local timezone).
-  - Real <video> playback from assets/videos/task-N.mp4. If the file
-    is missing the player falls back to a 5-second countdown so the
-    page is still usable for screenshots / presentations.
--->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Video Tasks · T-Video Media Demo</title>
+  <title>Video Tasks · T-Video Media</title>
   <link rel="stylesheet" href="assets/css/styles.css" />
   <style>
     .lock-card { padding: 28px; text-align: center; }
@@ -44,7 +29,7 @@
 
     <!-- Status strip -->
     <div class="grid grid-4 mb-16" id="statStrip">
-      <div class="stat"><div class="label">Active package</div><div class="value" id="sPkg">—</div></div>
+      <div class="stat"><div class="label">Active package</div><div class="value" id="sPkg">--</div></div>
       <div class="stat"><div class="label">Tasks today</div><div class="value" id="sToday">0 / 0</div></div>
       <div class="stat"><div class="label">Reward per task</div><div class="value" id="sReward">$0.00</div></div>
       <div class="stat"><div class="label">Today's earnings</div><div class="value" id="sEarn">$0.00</div></div>
@@ -60,26 +45,12 @@
       </p>
       <div class="row-flex" style="justify-content:center;">
         <a class="btn btn-primary" href="vip.html">Buy a package</a>
-        <a class="btn" href="scam-analysis.html">Why this matters</a>
       </div>
     </div>
 
     <!-- Task list -->
     <div id="active" class="hidden">
-      <div class="notice">
-        <strong>Educational warning:</strong> Real scam sites may use fake
-        video tasks to make users believe they are earning money. The
-        "rewards" here are just numbers in your browser's localStorage -
-        which is exactly how a real scam version of this page would behave
-        on the operator's side.
-      </div>
-
       <div class="grid grid-3" id="taskGrid"></div>
-    </div>
-
-    <div class="disclaimer mt-16">
-      Educational demo for scam-awareness research. No real money, no real
-      accounts, no real rewards.
     </div>
   </template>
 
@@ -89,159 +60,166 @@
   <script>
     UI.renderShell("Video Tasks");
 
-    const grid    = document.getElementById("taskGrid");
-    const lockEl  = document.getElementById("locked");
-    const aliveEl = document.getElementById("active");
+    var grid    = document.getElementById("taskGrid");
+    var lockEl  = document.getElementById("locked");
+    var aliveEl = document.getElementById("active");
 
-    function refresh() {
-      const v = DEMO.api.getActiveVip();
-      const u = DEMO.user;
+    function loadTasks() {
+      API.fetch('/api/tasks').then(function (res) {
+        if (res.error) {
+          UI.toast(res.error);
+          return;
+        }
+        renderTasks(res.tasks || [], res.vipLevel);
+      }).catch(function () {
+        UI.toast('Failed to load tasks');
+      });
+    }
+
+    function renderTasks(tasks, vipLevel) {
+      var vip = DEMO.vipTiers.find(function (t) { return t.level === vipLevel; });
+      var rewardPerTask = vip && vip.daily ? Math.round((vip.dailyIncome / vip.daily) * 100) / 100 : 0;
 
       // Top stats
-      document.getElementById("sPkg").textContent    = v ? v.name : "None";
-      document.getElementById("sReward").textContent = "$" + DEMO.api.rewardPerTask().toFixed(2);
-      document.getElementById("sEarn").textContent   = "$" + u.todayEarnings.toFixed(2);
+      document.getElementById("sPkg").textContent = vip ? vip.name : "None";
+      document.getElementById("sReward").textContent = "$" + rewardPerTask.toFixed(2);
 
-      if (!v) {
+      var done = tasks.filter(function (t) { return t.completed; }).length;
+      var todayEarnings = done * rewardPerTask;
+      document.getElementById("sToday").textContent = done + " / " + tasks.length;
+      document.getElementById("sEarn").textContent = "$" + todayEarnings.toFixed(2);
+
+      if (!vipLevel || tasks.length === 0) {
         lockEl.classList.remove("hidden");
         aliveEl.classList.add("hidden");
-        document.getElementById("sToday").textContent = "0 / 0";
         return;
       }
+
       lockEl.classList.add("hidden");
       aliveEl.classList.remove("hidden");
 
-      const tasks = DEMO.api.generateDailyTasks();
-      const done  = tasks.filter(t => t.completed).length;
-      document.getElementById("sToday").textContent = `${done} / ${tasks.length}`;
-
       grid.innerHTML = "";
-      tasks.forEach(t => {
-        const card = document.createElement("div");
+      tasks.forEach(function (t) {
+        var card = document.createElement("div");
         card.className = "card video-card";
-        const badge = t.completed
+        var badge = t.completed
           ? '<span class="badge badge-muted">Completed</span>'
           : '<span class="badge badge-success">Available</span>';
-        card.innerHTML = `
-          <div class="video-thumb">▶</div>
-          <div class="video-meta">
-            <h4>${t.title}</h4>
-            <div class="row-flex space-between">
-              <span class="reward-pill">+$${t.reward.toFixed(2)}</span>
-              ${badge}
-            </div>
-            <div class="row-flex mt-8">
-              <button class="btn btn-primary btn-sm watch-btn"
-                      data-id="${t.id}" data-src="${t.videoSrc}" data-reward="${t.reward}"
-                      ${t.completed ? "disabled style='opacity:.6;cursor:not-allowed;'" : ""}>
-                ${t.completed ? "Done for today" : "Watch & Earn"}
-              </button>
-            </div>
-          </div>
-        `;
+        card.innerHTML =
+          '<div class="video-thumb">\u25B6</div>' +
+          '<div class="video-meta">' +
+            '<h4>' + t.title + '</h4>' +
+            '<div class="row-flex space-between">' +
+              '<span class="reward-pill">+$' + (t.reward || rewardPerTask).toFixed(2) + '</span>' +
+              badge +
+            '</div>' +
+            '<div class="row-flex mt-8">' +
+              '<button class="btn btn-primary btn-sm watch-btn"' +
+                ' data-id="' + t.id + '" data-src="' + (t.videoSrc || '') + '" data-reward="' + (t.reward || rewardPerTask) + '"' +
+                (t.completed ? ' disabled style="opacity:.6;cursor:not-allowed;"' : '') + '>' +
+                (t.completed ? "Done for today" : "Watch & Earn") +
+              '</button>' +
+            '</div>' +
+          '</div>';
         grid.appendChild(card);
       });
 
-      grid.querySelectorAll(".watch-btn").forEach(btn => {
-        btn.addEventListener("click", () => openWatch(btn.dataset.id, btn.dataset.src, parseFloat(btn.dataset.reward)));
+      grid.querySelectorAll(".watch-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          openWatch(btn.dataset.id, btn.dataset.src, parseFloat(btn.dataset.reward));
+        });
       });
     }
 
     function openWatch(id, src, reward) {
-      const fallbackId   = "fbCountdown_" + id;
-      const fallbackBar  = "fbBar_" + id;
-      const videoElId    = "vid_" + id;
-      const noteId       = "note_" + id;
+      var fallbackId   = "fbCountdown_" + id;
+      var fallbackBar  = "fbBar_" + id;
+      var videoElId    = "vid_" + id;
 
-      const html = `
-        <video id="${videoElId}" controls playsinline preload="metadata">
-          <source src="${src}" type="video/mp4" />
-          <source src="${src.replace(/\\.mp4$/, ".webm")}" type="video/webm" />
-        </video>
-        <div id="${noteId}" class="muted mt-8" style="font-size:13px;">
-          Watch the video to the end to enable the Complete Task button.
-        </div>
-        <div id="fb_${id}" class="hidden">
-          <div class="video-fallback">▶</div>
-          <div class="muted mt-8" style="font-size:13px;">
-            Video file not found at <code>${src}</code>. Using a 5-second
-            demo countdown instead.
-            <br/>To enable real playback, drop a file with that exact name
-            into the <code>assets/videos/</code> folder.
-          </div>
-          <div class="mt-8" style="font-weight:700;">
-            Demo countdown: <span id="${fallbackId}">5</span>s
-          </div>
-          <div class="progress mt-8"><span id="${fallbackBar}" style="width:0%;"></span></div>
-        </div>
-        <div class="notice mt-16" style="margin-bottom:0;">
-          Reward on completion: <strong>+$${reward.toFixed(2)}</strong>
-        </div>
-      `;
+      var html =
+        '<video id="' + videoElId + '" controls playsinline preload="metadata">' +
+          '<source src="' + src + '" type="video/mp4" />' +
+          '<source src="' + src.replace(/\.mp4$/, ".webm") + '" type="video/webm" />' +
+        '</video>' +
+        '<div id="note_' + id + '" class="muted mt-8" style="font-size:13px;">' +
+          'Watch the video to the end to enable the Complete Task button.' +
+        '</div>' +
+        '<div id="fb_' + id + '" class="hidden">' +
+          '<div class="video-fallback">\u25B6</div>' +
+          '<div class="muted mt-8" style="font-size:13px;">Video not available. Using a 5-second countdown instead.</div>' +
+          '<div class="mt-8" style="font-weight:700;">Countdown: <span id="' + fallbackId + '">5</span>s</div>' +
+          '<div class="progress mt-8"><span id="' + fallbackBar + '" style="width:0%;"></span></div>' +
+        '</div>' +
+        '<div class="notice mt-16" style="margin-bottom:0;">Reward on completion: <strong>+$' + reward.toFixed(2) + '</strong></div>';
 
-      UI.openModal("Daily task — " + id, html, {
+      UI.openModal("Daily task - " + id, html, {
         confirmText: "Complete Task",
-        onConfirm: () => onComplete(id, reward),
+        onConfirm: function () { onComplete(id, reward); },
       });
 
-      const confirmBtn = document.getElementById("modalConfirm");
+      var confirmBtn = document.getElementById("modalConfirm");
       confirmBtn.disabled = true;
       confirmBtn.style.opacity = .5;
-      const enable = () => {
+      var enable = function () {
         confirmBtn.disabled = false;
         confirmBtn.style.opacity = 1;
       };
 
-      const v = document.getElementById(videoElId);
-      let usedFallback = false;
-      const useFallback = () => {
+      var v = document.getElementById(videoElId);
+      var usedFallback = false;
+      var useFallback = function () {
         if (usedFallback) return;
         usedFallback = true;
         v.style.display = "none";
-        const fb = document.getElementById("fb_" + id);
+        var fb = document.getElementById("fb_" + id);
         fb.classList.remove("hidden");
-        let s = 5;
-        const total = 5;
-        const tick = setInterval(() => {
+        var s = 5;
+        var total = 5;
+        var tick = setInterval(function () {
           s--;
-          const pct = Math.round(((total - s) / total) * 100);
-          const cd = document.getElementById(fallbackId);
-          const bar = document.getElementById(fallbackBar);
+          var pct = Math.round(((total - s) / total) * 100);
+          var cd = document.getElementById(fallbackId);
+          var bar = document.getElementById(fallbackBar);
           if (cd)  cd.textContent = Math.max(0, s);
           if (bar) bar.style.width = pct + "%";
           if (s <= 0) { clearInterval(tick); enable(); }
         }, 1000);
       };
 
-      // Real playback: enable button when video ends (or after >= 90% if user scrubs)
       v.addEventListener("ended", enable);
-      v.addEventListener("timeupdate", () => {
+      v.addEventListener("timeupdate", function () {
         if (v.duration && v.currentTime / v.duration >= 0.9) enable();
       });
 
-      // If the file 404s or otherwise can't load, switch to fallback.
       v.addEventListener("error", useFallback, true);
-      // Some browsers fire `error` only on the inner <source>:
-      v.querySelectorAll("source").forEach(s =>
-        s.addEventListener("error", () => {
-          // wait a tick to allow next <source> to try
-          setTimeout(() => { if (v.networkState === 3 || v.error) useFallback(); }, 50);
-        })
-      );
-      // If after 1500ms there's still no metadata, treat as missing.
-      setTimeout(() => {
+      v.querySelectorAll("source").forEach(function (s) {
+        s.addEventListener("error", function () {
+          setTimeout(function () { if (v.networkState === 3 || v.error) useFallback(); }, 50);
+        });
+      });
+      setTimeout(function () {
         if (v.readyState === 0) useFallback();
       }, 1500);
     }
 
     function onComplete(id, reward) {
-      const r = DEMO.api.completeTask(id, reward);
-      if (!r.ok) { UI.toast(r.error || "Could not complete"); return; }
-      UI.toast(`+$${reward.toFixed(2)} added to your demo balance`);
-      refresh();
+      API.fetch('/api/tasks/' + encodeURIComponent(id) + '/complete', { method: 'POST' }).then(function (res) {
+        if (res.error) {
+          if (res.code === 'VIP_EXPIRED') {
+            UI.openModal('VIP Expired', '<p>Your VIP package has expired. Please renew to continue earning.</p><a class="btn btn-primary" href="vip.html">Renew VIP</a>', { confirmText: 'OK' });
+          } else {
+            UI.toast(res.error);
+          }
+          return;
+        }
+        UI.toast('+$' + (res.reward || reward).toFixed(2) + ' earned!');
+        loadTasks();
+      }).catch(function () {
+        UI.toast('Failed to complete task');
+      });
     }
 
-    refresh();
+    loadTasks();
   </script>
 </body>
 </html>

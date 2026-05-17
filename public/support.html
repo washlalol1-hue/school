@@ -1,126 +1,56 @@
-<!--
-  Support - T-Video Media Demo
-  Educational only. Fake chat with auto-replies; FAQ; demo ticket form.
--->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Support · T-Video Media Demo</title>
+  <title>Support · T-Video Media</title>
   <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
 <body>
   <div id="appRoot"></div>
 
   <template id="pageContent">
-    <h1 class="page-title">Support Center (Demo)</h1>
+    <h1 class="page-title">Support Center</h1>
 
-    <div class="grid grid-2 mb-16">
-      <!-- Fake chat -->
-      <div class="card" style="padding:0;overflow:hidden;">
-        <div style="padding:14px 16px;border-bottom:1px solid var(--line);">
-          <strong>Live chat (demo)</strong>
-          <div class="muted" style="font-size:12px;">Auto-reply only. Nothing is sent anywhere.</div>
-        </div>
-        <div class="chat" style="border:none;border-radius:0;">
-          <div class="messages" id="chatMsgs">
-            <div class="bubble">
-              👋 Hi! This is the demo support chat. Ask any question - I will
-              reply with a canned message.
-            </div>
-          </div>
-          <form class="input-row" id="chatForm">
-            <input class="input" id="chatInput" placeholder="Type a message (demo)" autocomplete="off" />
-            <button class="btn btn-primary" type="submit">Send</button>
-          </form>
-        </div>
-      </div>
-
-      <!-- Ticket form -->
-      <div class="card">
-        <h3 class="mt-0">Submit a ticket (demo)</h3>
-        <form id="ticketForm" autocomplete="off" novalidate>
-          <div class="field">
-            <label>Subject</label>
-            <input class="input" id="t_subject" placeholder="Withdrawal issue (demo)" required />
-          </div>
-          <div class="field">
-            <label>Category</label>
-            <select id="t_cat">
-              <option>Withdrawal</option>
-              <option>VIP / Recharge</option>
-              <option>Tasks</option>
-              <option>Referrals</option>
-              <option>Other</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Message</label>
-            <textarea id="t_msg" rows="5" placeholder="Describe the demo issue..." required></textarea>
-          </div>
-          <button type="submit" class="btn btn-primary">Submit ticket (Demo)</button>
-        </form>
-      </div>
-    </div>
-
-    <!-- FAQ -->
+    <!-- Ticket form -->
     <div class="card mb-16">
-      <h3 class="mt-0">Frequently asked questions</h3>
-      <div class="grid grid-2">
-        <div>
-          <strong>Why is my withdrawal pending?</strong>
-          <p class="muted" style="font-size:14px;">
-            On real scam platforms, "pending review" is often used to delay
-            withdrawals indefinitely or to push users toward depositing more.
-            On this demo, all statuses are simulated and reset locally.
-          </p>
+      <h3 class="mt-0">Submit a Ticket</h3>
+      <form id="ticketForm" autocomplete="off" novalidate>
+        <div class="field">
+          <label>Subject</label>
+          <input class="input" id="t_subject" placeholder="Brief description of your issue" required />
         </div>
-        <div>
-          <strong>How do I upgrade VIP?</strong>
-          <p class="muted" style="font-size:14px;">
-            Visit the VIP page. The "upgrade" button shows an educational
-            warning instead of asking for money - this demo never collects
-            payments.
-          </p>
+        <div class="field">
+          <label>Category</label>
+          <select id="t_cat">
+            <option>Withdrawal</option>
+            <option>VIP / Recharge</option>
+            <option>Tasks</option>
+            <option>Referrals</option>
+            <option>Other</option>
+          </select>
         </div>
-        <div>
-          <strong>How do referrals work?</strong>
-          <p class="muted" style="font-size:14px;">
-            The Invite page shows fake L1/L2/L3 commissions. Real
-            multi-level referral systems can be a pyramid red flag if the
-            platform's income depends on new sign-ups rather than a real
-            product.
-          </p>
+        <div class="field">
+          <label>Message</label>
+          <textarea id="t_msg" rows="5" placeholder="Describe your issue in detail..." required></textarea>
         </div>
-        <div>
-          <strong>Why do I need to recharge?</strong>
-          <p class="muted" style="font-size:14px;">
-            Real scams use "recharge before withdraw" to capture user funds.
-            This demo never asks for or processes any real payment.
-          </p>
-        </div>
-        <div>
-          <strong>Is this real money?</strong>
-          <p class="muted" style="font-size:14px;">
-            <strong>No.</strong> Every balance, reward, deposit, and
-            withdrawal in this site is fake. This is a school project for
-            scam-awareness research only.
-          </p>
-        </div>
-        <div>
-          <strong>Where can I learn more?</strong>
-          <p class="muted" style="font-size:14px;">
-            See the <a href="scam-analysis.html">Scam Analysis</a> page for a
-            detailed walkthrough of every red flag this demo highlights.
-          </p>
-        </div>
-      </div>
+        <button type="submit" class="btn btn-primary">Submit Ticket</button>
+      </form>
     </div>
 
-    <div class="disclaimer">
-      Educational demo for scam-awareness research. No real money, no real
-      accounts, no real rewards.
+    <!-- My Tickets -->
+    <div class="card">
+      <h3 class="mt-0">My Tickets</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Subject</th><th>Category</th><th>Status</th><th>Date</th></tr>
+          </thead>
+          <tbody id="ticketRows">
+            <tr><td colspan="4" class="muted" style="text-align:center;">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </template>
 
@@ -130,42 +60,72 @@
   <script>
     UI.renderShell("Support");
 
-    const msgs = document.getElementById("chatMsgs");
-    function addBubble(text, mine) {
-      const el = document.createElement("div");
-      el.className = "bubble" + (mine ? " me" : "");
-      el.textContent = text;
-      msgs.appendChild(el);
-      msgs.scrollTop = msgs.scrollHeight;
+    // Submit ticket
+    document.getElementById("ticketForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var subject = document.getElementById("t_subject").value.trim();
+      var category = document.getElementById("t_cat").value;
+      var message = document.getElementById("t_msg").value.trim();
+
+      if (!subject || !message) {
+        UI.toast('Please fill in all required fields');
+        return;
+      }
+
+      API.fetch('/api/support/tickets', {
+        method: 'POST',
+        body: JSON.stringify({ subject: subject, category: category, message: message })
+      }).then(function (res) {
+        if (res.error) {
+          UI.toast(res.error);
+          return;
+        }
+        UI.toast('Ticket submitted successfully');
+        e.target.reset();
+        loadTickets();
+      }).catch(function () {
+        UI.toast('Failed to submit ticket');
+      });
+    });
+
+    // Load tickets
+    function loadTickets() {
+      API.fetch('/api/support/tickets').then(function (res) {
+        if (res.error) {
+          UI.toast(res.error);
+          return;
+        }
+        renderTickets(res.tickets || []);
+      }).catch(function () {
+        renderTickets([]);
+      });
     }
 
-    document.getElementById("chatForm").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const input = document.getElementById("chatInput");
-      const text = input.value.trim();
-      if (!text) return;
-      addBubble(text, true);
-      input.value = "";
-      setTimeout(() => {
-        addBubble(
-          "This is a demo support chat. No message was sent. " +
-          "For educational notes, visit the Scam Analysis page."
-        );
-      }, 600);
-    });
+    function renderTickets(tickets) {
+      var tbody = document.getElementById("ticketRows");
+      if (!tickets.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="muted" style="text-align:center;">No tickets yet</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      tickets.forEach(function (t) {
+        var tr = document.createElement("tr");
+        var status = (t.status || 'Open').toLowerCase();
+        var badgeClass = 'badge-warning';
+        if (status === 'in progress' || status === 'in_progress') badgeClass = 'badge-success';
+        else if (status === 'closed') badgeClass = 'badge-muted';
 
-    document.getElementById("ticketForm").addEventListener("submit", (e) => {
-      e.preventDefault();
-      UI.openModal(
-        "Demo ticket submitted",
-        `<p>Demo only. Your ticket was <strong>not</strong> sent anywhere.</p>
-         <p class="muted" style="font-size:13px;">A real scam version of this
-         page often replies with stalling messages while pushing the user to
-         deposit more.</p>`,
-        { confirmText: "OK" }
-      );
-      e.target.reset();
-    });
+        var dateStr = t.date ? new Date(t.date).toLocaleDateString() : '--';
+        tr.innerHTML =
+          '<td>' + (t.subject || '--') + '</td>' +
+          '<td>' + (t.category || '--') + '</td>' +
+          '<td><span class="badge ' + badgeClass + '">' + (t.status || 'Open') + '</span></td>' +
+          '<td>' + dateStr + '</td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    loadTickets();
   </script>
 </body>
 </html>

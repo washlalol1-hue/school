@@ -89,7 +89,11 @@
       background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.02));
       border: 1px solid rgba(239, 68, 68, 0.2);
     }
-    .btn-logout {
+    .delete-section {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.02));
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+    .btn-logout, .btn-delete {
       background: var(--danger);
       color: #fff;
       font-weight: 600;
@@ -100,7 +104,7 @@
       cursor: pointer;
       transition: opacity 0.2s;
     }
-    .btn-logout:hover { opacity: 0.85; }
+    .btn-logout:hover, .btn-delete:hover { opacity: 0.85; }
 
     .status-msg {
       display: inline-block;
@@ -283,6 +287,23 @@
       </div>
     </div>
 
+    <!-- Delete Account Section -->
+    <div class="settings-section">
+      <div class="card delete-section">
+        <div class="section-header" style="border-bottom:none;margin-bottom:8px;padding-bottom:0;">
+          <div class="icon red">⚠️</div>
+          <div>
+            <h3>Delete Account</h3>
+            <p>Permanently delete your account and all associated data</p>
+          </div>
+        </div>
+        <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:16px;">
+          This action is irreversible. All your data will be permanently removed.
+        </p>
+        <button class="btn-delete" id="deleteBtn">Delete Account</button>
+      </div>
+    </div>
+
     <!-- Logout Section -->
     <div class="settings-section">
       <div class="card logout-section">
@@ -311,17 +332,55 @@
     document.getElementById("s_username").value = DEMO.user.username || '';
     document.getElementById("s_email").value = DEMO.user.email || '';
 
-    // Profile form
+    // Profile form - calls API directly
     document.getElementById("profileForm").addEventListener("submit", function (e) {
       e.preventDefault();
       var statusEl = document.getElementById("profileStatus");
-      DEMO.api.setProfile({
-        username: document.getElementById("s_username").value,
-        email: document.getElementById("s_email").value,
+      var username = document.getElementById("s_username").value.trim();
+      var email = document.getElementById("s_email").value.trim();
+
+      if (!username) {
+        statusEl.className = 'status-msg error';
+        statusEl.textContent = 'Username is required';
+        return;
+      }
+
+      statusEl.className = 'status-msg';
+      statusEl.textContent = 'Saving...';
+
+      var body = { username: username };
+      if (email) body.email = email;
+
+      API.fetch('/api/settings/profile', {
+        method: 'PUT',
+        body: JSON.stringify(body)
+      }).then(function (data) {
+        if (data.error) {
+          statusEl.className = 'status-msg error';
+          if (data.code === 'USERNAME_COOLDOWN') {
+            statusEl.textContent = 'Can only change username once every 24 hours';
+          } else if (data.code === 'CONFLICT') {
+            statusEl.textContent = 'Username or email already taken';
+          } else if (data.code === 'PASSWORD_REQUIRED') {
+            statusEl.textContent = 'Password required to change email';
+          } else if (data.code === 'INVALID_USERNAME') {
+            statusEl.textContent = 'Invalid username format';
+          } else {
+            statusEl.textContent = data.error;
+          }
+        } else {
+          if (data.username) DEMO.user.username = data.username;
+          if (data.email) DEMO.user.email = data.email;
+          DEMO.persist();
+          statusEl.className = 'status-msg success';
+          statusEl.textContent = 'Profile saved successfully';
+        }
+        setTimeout(function () { statusEl.textContent = ''; }, 4000);
+      }).catch(function () {
+        statusEl.className = 'status-msg error';
+        statusEl.textContent = 'Failed to save profile. Try again.';
+        setTimeout(function () { statusEl.textContent = ''; }, 4000);
       });
-      statusEl.className = 'status-msg success';
-      statusEl.textContent = 'Profile saved successfully';
-      setTimeout(function () { statusEl.textContent = ''; }, 3000);
     });
 
     // Password form - calls real API
@@ -389,6 +448,46 @@
             DEMO.resetUser();
             UI.toast("Account data has been reset");
             setTimeout(function () { location.reload(); }, 800);
+          }
+        }
+      );
+    });
+
+    // Delete account
+    document.getElementById("deleteBtn").addEventListener("click", function () {
+      UI.openModal(
+        "Delete Account",
+        '<p>This action is <strong>permanent</strong> and cannot be undone. All your data will be deleted.</p>' +
+        '<div class="field" style="margin-top:16px;margin-bottom:0;">' +
+          '<label>Enter your password to confirm:</label>' +
+          '<input class="input" id="deletePassword" type="password" placeholder="Your password" />' +
+        '</div>',
+        {
+          confirmText: "Delete Account",
+          onConfirm: function () {
+            var password = document.getElementById("deletePassword").value;
+            if (!password) {
+              UI.toast('Password is required');
+              return;
+            }
+            API.fetch('/api/settings/account', {
+              method: 'DELETE',
+              body: JSON.stringify({ password: password })
+            }).then(function (res) {
+              if (res.error) {
+                if (res.code === 'INVALID_PASSWORD') {
+                  UI.toast('Incorrect password');
+                } else {
+                  UI.toast(res.error);
+                }
+                return;
+              }
+              localStorage.removeItem('tvmd_token');
+              localStorage.removeItem('tvmd_cache');
+              window.location.href = 'login.html';
+            }).catch(function () {
+              UI.toast('Failed to delete account');
+            });
           }
         }
       );
