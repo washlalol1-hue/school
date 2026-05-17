@@ -1,6 +1,6 @@
 // Admin routes: stats, users, freeze, approve/reject withdrawals, broadcast, support management
 import { authMiddleware } from '../auth.js';
-import { isValidLength, errorResponse } from '../utils.js';
+import { isValidLength, errorResponse, sanitizeInput } from '../utils.js';
 
 export async function handleAdmin(request, env, path) {
   const user = await authMiddleware(request, env);
@@ -314,9 +314,11 @@ async function adminReplyToTicket(request, env, adminUser, ticketId) {
     return new Response(JSON.stringify({ error: 'Ticket not found', code: 'NOT_FOUND' }), { status: 404 });
   }
 
+  const cleanMessage = sanitizeInput(message);
+
   await env.DB.prepare(
     'INSERT INTO support_replies (ticket_id, user_id, is_admin, message) VALUES (?, ?, 1, ?)'
-  ).bind(ticketId, adminUser.id, message).run();
+  ).bind(ticketId, adminUser.id, cleanMessage).run();
 
   await env.DB.prepare(
     "UPDATE support_tickets SET status = 'In Progress' WHERE id = ?"
@@ -330,10 +332,12 @@ async function approveWithdrawal(env, withdrawalId) {
   if (!wd) {
     return new Response(JSON.stringify({ error: 'Withdrawal not found' }), { status: 404 });
   }
-  await env.DB.prepare("UPDATE withdrawals SET status = 'Completed' WHERE id = ?").bind(withdrawalId).run();
-  await env.DB.prepare(
-    "UPDATE transactions SET status = 'Completed' WHERE user_id = ? AND type = 'Withdraw' AND status = 'Pending' AND description = ?"
-  ).bind(wd.user_id, `Withdrawal #${withdrawalId} to ${wd.address}`).run();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE withdrawals SET status = 'Completed' WHERE id = ?").bind(withdrawalId),
+    env.DB.prepare(
+      "UPDATE transactions SET status = 'Completed' WHERE user_id = ? AND type = 'Withdraw' AND status = 'Pending' AND description = ?"
+    ).bind(wd.user_id, `Withdrawal #${withdrawalId} to ${wd.address}`),
+  ]);
   return new Response(JSON.stringify({ ok: true }));
 }
 
@@ -342,14 +346,15 @@ async function rejectWithdrawal(env, withdrawalId) {
   if (!wd) {
     return new Response(JSON.stringify({ error: 'Withdrawal not found' }), { status: 404 });
   }
-  await env.DB.prepare("UPDATE withdrawals SET status = 'Rejected' WHERE id = ?").bind(withdrawalId).run();
-  await env.DB.prepare(
-    "UPDATE transactions SET status = 'Rejected' WHERE user_id = ? AND type = 'Withdraw' AND status = 'Pending' AND description = ?"
-  ).bind(wd.user_id, `Withdrawal #${withdrawalId} to ${wd.address}`).run();
-  // Refund balance
-  await env.DB.prepare(
-    'UPDATE users SET balance = balance + ? WHERE id = ?'
-  ).bind(wd.amount, wd.user_id).run();
+  await env.DB.batch([
+    env.DB.prepare("UPDATE withdrawals SET status = 'Rejected' WHERE id = ?").bind(withdrawalId),
+    env.DB.prepare(
+      "UPDATE transactions SET status = 'Rejected' WHERE user_id = ? AND type = 'Withdraw' AND status = 'Pending' AND description = ?"
+    ).bind(wd.user_id, `Withdrawal #${withdrawalId} to ${wd.address}`),
+    env.DB.prepare(
+      'UPDATE users SET balance = balance + ? WHERE id = ?'
+    ).bind(wd.amount, wd.user_id),
+  ]);
   return new Response(JSON.stringify({ ok: true }));
 }
 
@@ -373,9 +378,12 @@ async function broadcast(request, env) {
     return errorResponse('Body must be between 1 and 5000 characters', 'INVALID_INPUT');
   }
 
+  const cleanTitle = sanitizeInput(title);
+  const cleanBody = sanitizeInput(msgBody);
+
   await env.DB.prepare(
     'INSERT INTO messages (title, body, tag) VALUES (?, ?, ?)'
-  ).bind(title, msgBody, tag || 'System').run();
+  ).bind(cleanTitle, cleanBody, tag || 'System').run();
 
   return new Response(JSON.stringify({ ok: true }), { status: 201 });
 }

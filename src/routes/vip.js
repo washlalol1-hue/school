@@ -62,9 +62,13 @@ async function buyTier(request, env) {
 
   // Deduct balance if not free
   if (tier.price > 0) {
-    await env.DB.prepare(
-      'UPDATE users SET balance = balance - ?, vip_level = ?, vip_expires_at = ? WHERE id = ?'
-    ).bind(tier.price, level, vipExpiresAt, user.id).run();
+    const result = await env.DB.prepare(
+      'UPDATE users SET balance = balance - ?, vip_level = ?, vip_expires_at = ? WHERE id = ? AND balance >= ?'
+    ).bind(tier.price, level, vipExpiresAt, user.id, tier.price).run();
+
+    if (!result.meta.changes) {
+      return new Response(JSON.stringify({ error: 'Insufficient balance', code: 'INSUFFICIENT_BALANCE' }), { status: 400 });
+    }
 
     await addTransaction(env.DB, {
       userId: user.id,
