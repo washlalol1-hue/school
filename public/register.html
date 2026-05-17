@@ -82,14 +82,50 @@
 
   <script src="assets/js/data.js"></script>
   <script>
+    // If already logged in, redirect
+    if (localStorage.getItem('tvmd_token')) {
+      location.href = 'dashboard.html';
+    }
+
     document.getElementById("registerForm").addEventListener("submit", function (e) {
       e.preventDefault();
-      // Save chosen username/email to local demo state so the dashboard
-      // shows it. No real account is created.
-      const username = document.getElementById("reg_username").value.trim();
-      const email    = document.getElementById("reg_contact").value.trim();
-      if (username || email) DEMO.api.setProfile({ username, email });
-      document.getElementById("modal").classList.add("open");
+      var username = document.getElementById("reg_username").value.trim();
+      var email    = document.getElementById("reg_contact").value.trim();
+      var password = document.getElementById("reg_pw").value;
+      var password2 = document.getElementById("reg_pw2").value;
+      var inviteCode = document.getElementById("reg_invite").value.trim();
+
+      if (!username || !email || !password) {
+        alert("Please fill in all required fields");
+        return;
+      }
+      if (password !== password2) {
+        alert("Passwords do not match");
+        return;
+      }
+
+      fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, email: email, password: password, inviteCode: inviteCode || undefined })
+      })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.token) {
+            localStorage.setItem('tvmd_token', data.token);
+            if (data.user) {
+              localStorage.setItem('tvmd_cache', JSON.stringify({ user: data.user }));
+            }
+            document.getElementById("modal").classList.add("open");
+          } else {
+            alert(data.error || 'Registration failed');
+          }
+        })
+        .catch(function () {
+          // Offline fallback: save locally and show modal
+          if (username || email) DEMO.api.setProfile({ username: username, email: email });
+          document.getElementById("modal").classList.add("open");
+        });
     });
     document.getElementById("closeBtn").addEventListener("click", function () {
       document.getElementById("modal").classList.remove("open");

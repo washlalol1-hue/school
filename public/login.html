@@ -48,11 +48,40 @@
     </div>
   </div>
 
+  <script src="assets/js/data.js"></script>
   <script>
+    // If already logged in, redirect
+    if (localStorage.getItem('tvmd_token')) {
+      location.href = 'dashboard.html';
+    }
+
     document.getElementById("loginForm").addEventListener("submit", function (e) {
       e.preventDefault();
-      // Demo only: no validation, no network call. Redirect to dashboard.
-      location.href = "dashboard.html";
+      var username = document.getElementById("login_id").value.trim();
+      var password = document.getElementById("login_pw").value;
+      if (!username || !password) return;
+
+      fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, password: password })
+      })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          if (data.token) {
+            localStorage.setItem('tvmd_token', data.token);
+            if (data.user) {
+              localStorage.setItem('tvmd_cache', JSON.stringify({ user: data.user }));
+            }
+            location.href = 'dashboard.html';
+          } else {
+            alert(data.error || 'Login failed');
+          }
+        })
+        .catch(function () {
+          // Offline fallback: just redirect for demo
+          location.href = 'dashboard.html';
+        });
     });
     document.getElementById("forgotLink").addEventListener("click", function (e) {
       e.preventDefault();
