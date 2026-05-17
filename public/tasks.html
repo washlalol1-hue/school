@@ -108,14 +108,14 @@
         card.innerHTML =
           '<div class="video-thumb">\u25B6</div>' +
           '<div class="video-meta">' +
-            '<h4>' + t.title + '</h4>' +
+            '<h4>' + escapeHtml(t.title) + '</h4>' +
             '<div class="row-flex space-between">' +
               '<span class="reward-pill">+$' + (t.reward || rewardPerTask).toFixed(2) + '</span>' +
               badge +
             '</div>' +
             '<div class="row-flex mt-8">' +
               '<button class="btn btn-primary btn-sm watch-btn"' +
-                ' data-id="' + t.id + '" data-src="' + (t.videoSrc || '') + '" data-reward="' + (t.reward || rewardPerTask) + '"' +
+                ' data-id="' + escapeHtml(t.id) + '" data-src="' + escapeHtml(t.videoSrc || '') + '" data-reward="' + (t.reward || rewardPerTask) + '"' +
                 (t.completed ? ' disabled style="opacity:.6;cursor:not-allowed;"' : '') + '>' +
                 (t.completed ? "Done for today" : "Watch & Earn") +
               '</button>' +

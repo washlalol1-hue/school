@@ -161,7 +161,7 @@
       const banner = document.getElementById("topBanner");
       if (tier && tier.level > 0) {
         banner.innerHTML = `<div class="notice info">
-          Active package <strong>${tier.name}</strong> - ${todayDone} / ${todayTotal} tasks completed today
+          Active package <strong>${escapeHtml(tier.name)}</strong> - ${todayDone} / ${todayTotal} tasks completed today
           - <a href="tasks.html">continue tasks</a>
         </div>`;
       } else {
@@ -180,7 +180,7 @@
         const pct = todayTotal > 0 ? Math.round((todayDone / todayTotal) * 100) : 0;
         const reward = tier.daily > 0 ? (tier.dailyIncome / tier.daily).toFixed(2) : '0.00';
         vipCard.innerHTML = `
-          <h3 class="mt-0">${tier.name} - daily progress</h3>
+          <h3 class="mt-0">${escapeHtml(tier.name)} - daily progress</h3>
           <div class="muted mb-8">
             ${todayDone} of ${todayTotal} tasks done today - reward $${reward} each
           </div>
