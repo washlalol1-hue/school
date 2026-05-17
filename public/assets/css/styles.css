@@ -1,6 +1,10 @@
 /* T-Video Media Demo - Dark Theme Styles */
 /* Educational demo for scam-awareness research */
 
+html {
+  scroll-behavior: smooth;
+}
+
 :root {
   --bg: #0b1120;
   --bg-card: #1a2238;

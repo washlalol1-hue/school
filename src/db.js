@@ -21,6 +21,10 @@ export async function getUserByUsername(db, username) {
   return db.prepare('SELECT * FROM users WHERE username = ?').bind(username).first();
 }
 
+export async function getUserByEmail(db, email) {
+  return db.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+}
+
 export async function getUserByInviteCode(db, code) {
   return db.prepare('SELECT * FROM users WHERE invite_code = ?').bind(code).first();
 }

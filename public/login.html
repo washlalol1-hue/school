@@ -32,7 +32,7 @@
         <button class="btn btn-primary btn-block" type="submit">Login (Demo)</button>
 
         <div class="meta">
-          <a href="#" id="forgotLink">Forgot password?</a>
+          <a href="forgot-password.html">Forgot password?</a>
           <span class="muted">No account? <a href="register.html">Register</a></span>
         </div>
       </form>
@@ -81,10 +81,6 @@
         .catch(function (err) {
           alert('Unable to connect to server. Please try again later.');
         });
-    });
-    document.getElementById("forgotLink").addEventListener("click", function (e) {
-      e.preventDefault();
-      alert("Demo only. No password reset is performed.");
     });
   </script>
 </body>

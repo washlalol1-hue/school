@@ -104,6 +104,13 @@
         return;
       }
 
+      // Client-side email format validation
+      var emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        alert("Please enter a valid email address");
+        return;
+      }
+
       fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -122,9 +129,7 @@
           }
         })
         .catch(function () {
-          // Offline fallback: save locally and show modal
-          if (username || email) DEMO.api.setProfile({ username: username, email: email });
-          document.getElementById("modal").classList.add("open");
+          alert('Unable to connect to server. Please try again later.');
         });
     });
     document.getElementById("closeBtn").addEventListener("click", function () {
