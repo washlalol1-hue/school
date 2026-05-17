@@ -1,0 +1,99 @@
+<!--
+  Register page - T-Video Media Demo
+  Educational only. No real registration. Submitting shows a demo modal.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Register · T-Video Media Demo</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <a href="index.html" class="brand mb-16">
+        <span class="brand-mark">T</span>
+        <span>T-Video Media Demo</span>
+      </a>
+      <h1>Create demo account</h1>
+      <p class="sub">No data is saved. Everything below is for the school project replica.</p>
+
+      <form id="registerForm" autocomplete="off" novalidate>
+        <div class="field">
+          <label for="reg_username">Username</label>
+          <input class="input" id="reg_username" placeholder="demo_user" required />
+        </div>
+        <div class="field">
+          <label for="reg_contact">Email or phone number</label>
+          <input class="input" id="reg_contact" placeholder="demo@example.test" required />
+        </div>
+        <div class="field">
+          <label for="reg_pw">Password</label>
+          <input class="input" id="reg_pw" type="password" placeholder="Any text - not validated" required />
+        </div>
+        <div class="field">
+          <label for="reg_pw2">Confirm password</label>
+          <input class="input" id="reg_pw2" type="password" placeholder="Repeat any text" required />
+        </div>
+        <div class="field">
+          <label for="reg_invite">Invitation code (optional)</label>
+          <input class="input" id="reg_invite" placeholder="TVMD-9F4K2X" />
+        </div>
+
+        <div class="notice danger">
+          <strong>Educational warning:</strong> Real scam platforms often use
+          invitation codes to build referral networks. Existing users get a
+          fake commission for every new sign-up, which encourages aggressive
+          recruitment - a hallmark of pyramid-style schemes.
+        </div>
+
+        <button class="btn btn-primary btn-block" type="submit">Register (Demo)</button>
+
+        <div class="meta">
+          <span class="muted">Already have an account?</span>
+          <a href="login.html">Login</a>
+        </div>
+      </form>
+
+      <div class="disclaimer mt-16">
+        Educational demo for scam-awareness research. No real money, no real
+        accounts, no real rewards.
+      </div>
+    </div>
+  </div>
+
+  <!-- Demo modal -->
+  <div class="modal-backdrop" id="modal">
+    <div class="modal" role="dialog" aria-modal="true">
+      <h3>Demo account created</h3>
+      <div class="body">
+        Demo account created. <strong>No data was saved.</strong>
+        You can now explore the demo dashboard - all balances and rewards
+        you see are fictional and reset locally.
+      </div>
+      <div class="actions">
+        <button class="btn" id="closeBtn">Close</button>
+        <a class="btn btn-primary" href="dashboard.html">Open dashboard</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/data.js"></script>
+  <script>
+    document.getElementById("registerForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      // Save chosen username/email to local demo state so the dashboard
+      // shows it. No real account is created.
+      const username = document.getElementById("reg_username").value.trim();
+      const email    = document.getElementById("reg_contact").value.trim();
+      if (username || email) DEMO.api.setProfile({ username, email });
+      document.getElementById("modal").classList.add("open");
+    });
+    document.getElementById("closeBtn").addEventListener("click", function () {
+      document.getElementById("modal").classList.remove("open");
+    });
+  </script>
+</body>
+</html>

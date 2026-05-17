@@ -1,0 +1,119 @@
+<!--
+  Recharge / Deposit Demo - T-Video Media Demo
+  Educational only. NO real wallet addresses, QR codes, payment APIs,
+  or bank details. Submitting shows a "Demo only" message.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recharge · T-Video Media Demo</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div id="appRoot"></div>
+
+  <template id="pageContent">
+    <h1 class="page-title">Recharge (Demo)</h1>
+
+    <div class="notice danger">
+      <strong>Educational warning:</strong> Scam platforms often ask users to
+      deposit money before allowing withdrawals or higher task rewards. The
+      "deposit-to-withdraw" pattern is a hallmark of fake reward sites.
+    </div>
+
+    <div class="grid grid-3 mb-16">
+      <label class="card pay-method" data-method="USDT Demo" style="cursor:pointer;">
+        <div class="row-flex space-between">
+          <div>
+            <div style="font-weight:700;">USDT Demo</div>
+            <div class="muted" style="font-size:13px;">Crypto (fake)</div>
+          </div>
+          <input type="radio" name="method" value="USDT Demo" checked />
+        </div>
+      </label>
+      <label class="card pay-method" data-method="Bank Transfer Demo" style="cursor:pointer;">
+        <div class="row-flex space-between">
+          <div>
+            <div style="font-weight:700;">Bank Transfer Demo</div>
+            <div class="muted" style="font-size:13px;">No real bank details</div>
+          </div>
+          <input type="radio" name="method" value="Bank Transfer Demo" />
+        </div>
+      </label>
+      <label class="card pay-method" data-method="Card Demo" style="cursor:pointer;">
+        <div class="row-flex space-between">
+          <div>
+            <div style="font-weight:700;">Card Demo</div>
+            <div class="muted" style="font-size:13px;">No real card processing</div>
+          </div>
+          <input type="radio" name="method" value="Card Demo" />
+        </div>
+      </label>
+    </div>
+
+    <div class="card">
+      <h3 class="mt-0">Recharge details (demo)</h3>
+      <form id="rechargeForm" autocomplete="off" novalidate>
+        <div class="grid grid-2">
+          <div class="field">
+            <label>Amount (demo)</label>
+            <input class="input" type="number" id="amount" min="1" step="1" placeholder="50" required />
+          </div>
+          <div class="field">
+            <label>Transaction ID (demo)</label>
+            <input class="input" id="txid" placeholder="DEMO-TX-000000" required />
+          </div>
+        </div>
+
+        <div class="notice info">
+          <strong>Note:</strong> No real wallet address, QR code, bank account,
+          or card form is shown. A real scam version of this page would display
+          a payment destination here designed to redirect your money to the
+          operator.
+        </div>
+
+        <button type="submit" class="btn btn-primary">Submit (Demo only)</button>
+      </form>
+    </div>
+
+    <div class="disclaimer mt-16">
+      Educational demo for scam-awareness research. No real money, no real
+      accounts, no real rewards.
+    </div>
+  </template>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    UI.renderShell("Recharge");
+
+    // Visual selection of payment method cards
+    document.querySelectorAll(".pay-method").forEach(el => {
+      el.addEventListener("click", () => {
+        document.querySelectorAll(".pay-method").forEach(c => c.style.borderColor = "");
+        el.style.borderColor = "var(--primary)";
+      });
+    });
+
+    document.getElementById("rechargeForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const amt = parseFloat(document.getElementById("amount").value || "0");
+      if (!amt || amt <= 0) {
+        UI.toast("Enter a demo amount");
+        return;
+      }
+      UI.openModal(
+        "Demo only",
+        `<p>Demo only. <strong>No payment was made.</strong></p>
+         <p class="muted" style="font-size:13px;">
+           A real scam recharge form might pretend to "credit" your account
+           after a deposit, then later block withdrawals to keep the funds.
+         </p>`,
+        { confirmText: "OK" }
+      );
+    });
+  </script>
+</body>
+</html>

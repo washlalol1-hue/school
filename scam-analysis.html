@@ -1,0 +1,174 @@
+<!--
+  Scam Analysis - T-Video Media Demo
+  This is the central educational page that explains every red flag this
+  demo intentionally reproduces, and how users can protect themselves.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scam Analysis · T-Video Media Demo</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div id="appRoot"></div>
+
+  <template id="pageContent">
+    <h1 class="page-title">Scam Analysis - How fake reward platforms work</h1>
+
+    <div class="notice info">
+      <strong>About this page:</strong> Every section below corresponds to a
+      design pattern intentionally reproduced in this demo. Use it as a guide
+      when presenting the project, or when evaluating any platform that
+      promises easy online earnings.
+    </div>
+
+    <div class="card mb-16">
+      <h2 class="mt-0">What makes this type of platform suspicious?</h2>
+      <p class="muted">
+        "Watch videos and earn money", "do simple tasks for daily income",
+        "invite friends and unlock VIP" - these slogans cover a recurring
+        scam pattern. The platform looks like a small reward app, but the
+        business model is built on collecting deposits and recruiting users.
+      </p>
+      <p class="muted">
+        The website itself is just the front-end. Every balance, every
+        "reward", and every withdrawal status is a number the operator can
+        change at any time. When the operator decides to stop paying, the
+        site simply blocks withdrawals or disappears.
+      </p>
+    </div>
+
+    <div class="grid grid-2 mb-16">
+      <div class="card">
+        <h3 class="mt-0">1. Unrealistic earning promises</h3>
+        <p class="muted">Daily returns of 5%-30%, "monthly income" charts,
+        and VIP tiers promising thousands per month are the most obvious red
+        flag. No legitimate investment or task platform can deliver these
+        consistently.</p>
+        <p class="muted"><strong>Demo example:</strong> our VIP 5 tier
+        promises $8,400/month for an $8,000 deposit. That is mathematically
+        impossible to sustain.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="mt-0">2. Fake task rewards</h3>
+        <p class="muted">Watch-to-earn videos and click-to-earn buttons cost
+        the operator nothing. The reward is just a number incremented in a
+        database. Users feel like they are earning, but no real money has
+        moved.</p>
+        <p class="muted"><strong>Demo example:</strong> in this site, the
+        "+$1.50" you see after watching a demo video is added by a single
+        line of JavaScript - exactly how a scam version would behave.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="mt-0">3. VIP upgrade pressure</h3>
+        <p class="muted">"Upgrade to unlock more tasks", "limited-time VIP
+        discount", and "exclusive daily income" pressure users to deposit
+        more. Higher VIPs always require larger deposits, and the unlock
+        screen is designed to feel urgent.</p>
+        <p class="muted"><strong>Watch for:</strong> countdown timers, fake
+        "only X spots left" notices, and required deposits before any
+        meaningful interaction.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="mt-0">4. Deposit-before-withdraw pattern</h3>
+        <p class="muted">The site lets you "earn" small amounts and may even
+        pay tiny early withdrawals to build trust. Once your fake balance
+        gets larger, withdrawal suddenly requires a "verification fee", a
+        "VIP upgrade", or a minimum balance you cannot reach without
+        depositing.</p>
+        <p class="muted"><strong>Rule of thumb:</strong> any platform that
+        ever asks you to pay to receive your own money is a scam.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="mt-0">5. Referral and pyramid-style growth</h3>
+        <p class="muted">Multi-level commissions (L1/L2/L3) reward existing
+        users for bringing in new ones. When most "earnings" depend on new
+        sign-ups instead of an actual product, the system behaves like a
+        pyramid scheme and collapses when recruiting slows down.</p>
+        <p class="muted"><strong>Demo example:</strong> the Invite page
+        offers 10% / 5% / 2% across three levels - a classic pyramid
+        structure.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="mt-0">6. Brand impersonation</h3>
+        <p class="muted">Real scams often borrow the name, logo, or visual
+        style of a well-known company to appear legitimate. They may use
+        domains that look similar to a real brand or imply an unofficial
+        partnership.</p>
+        <p class="muted"><strong>This demo intentionally uses no real brand,
+        no real logo, and a fictional name</strong> ("T-Video Media Demo")
+        to avoid impersonation while still showing the pattern.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="mt-0">7. Withdrawal blocking</h3>
+        <p class="muted">"Pending review", "frozen for security", "system
+        maintenance", or "requires VIP X to withdraw" are common stalling
+        tactics. The goal is to delay payouts long enough for the user to
+        deposit more or give up.</p>
+        <p class="muted"><strong>Demo example:</strong> see the Withdraw
+        page - the same statuses you would meet on a real scam (Pending /
+        Rejected / Frozen) are reproduced here for analysis.</p>
+      </div>
+
+      <div class="card">
+        <h3 class="mt-0">8. Manufactured urgency in messages</h3>
+        <p class="muted">Push notifications and announcements are used to
+        create urgency: "promotion ending soon", "verify now to keep your
+        balance", "withdrawal queue closing". Each is engineered to push the
+        user toward an action that benefits the operator.</p>
+        <p class="muted"><strong>Demo example:</strong> the Messages page
+        shows the same kind of fake announcements scam sites use.</p>
+      </div>
+    </div>
+
+    <div class="card mb-16">
+      <h2 class="mt-0">How to protect yourself online</h2>
+      <ul class="muted" style="line-height:1.7;">
+        <li>If returns sound too good to be true, they are. No real platform pays 5%+ per day.</li>
+        <li>Never deposit money to "unlock" the ability to withdraw your own balance.</li>
+        <li>Be skeptical of platforms whose income depends on recruiting more users.</li>
+        <li>Do not trust testimonials, screenshots, or in-app announcements as proof of payouts.</li>
+        <li>Search the platform name plus words like "scam", "withdrawal", or "review" before depositing.</li>
+        <li>Avoid platforms that ask for crypto deposits to anonymous wallet addresses.</li>
+        <li>Watch for brand impersonation: very small spelling changes, copied logos, fake "partnership" claims.</li>
+        <li>Do not share account credentials, ID documents, or payment details with reward apps you cannot verify.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2 class="mt-0">What to check before trusting a platform</h2>
+      <div class="grid grid-2">
+        <ul class="muted" style="line-height:1.7;">
+          <li>Is the company legally registered, and where?</li>
+          <li>Is there verifiable contact information (not just a chat box)?</li>
+          <li>Does the website disclose ownership and team members?</li>
+          <li>Is the domain new or recently registered?</li>
+        </ul>
+        <ul class="muted" style="line-height:1.7;">
+          <li>Are reviews on independent sites consistent with the marketing?</li>
+          <li>Does it require a deposit before any earnings are possible?</li>
+          <li>Does it pressure you to recruit others?</li>
+          <li>Are withdrawal terms clear, or vague and changeable?</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="disclaimer mt-16">
+      Educational demo for scam-awareness research. No real money, no real
+      accounts, no real rewards.
+    </div>
+  </template>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>UI.renderShell("Scam Analysis");</script>
+</body>
+</html>

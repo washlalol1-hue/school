@@ -1,0 +1,63 @@
+<!--
+  Login page - T-Video Media Demo
+  Educational only. No real authentication. Submitting redirects to dashboard.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login · T-Video Media Demo</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <a href="index.html" class="brand mb-16">
+        <span class="brand-mark">T</span>
+        <span>T-Video Media Demo</span>
+      </a>
+      <h1>Login</h1>
+      <p class="sub">Sign in to view the educational demo dashboard.</p>
+
+      <form id="loginForm" autocomplete="off" novalidate>
+        <div class="field">
+          <label for="login_id">Email or phone</label>
+          <input class="input" id="login_id" placeholder="demo@example.test" required />
+        </div>
+        <div class="field">
+          <label for="login_pw">Password</label>
+          <input class="input" id="login_pw" type="password" placeholder="Any text - not validated" required />
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Login (Demo)</button>
+
+        <div class="meta">
+          <a href="#" id="forgotLink">Forgot password?</a>
+          <span class="muted">No account? <a href="register.html">Register</a></span>
+        </div>
+      </form>
+
+      <div class="notice info mt-16">
+        <strong>Demo notice:</strong> This login is fake and does not store
+        real data. Any input will succeed.
+      </div>
+      <div class="disclaimer">
+        Educational demo for scam-awareness research. No real money, no real
+        accounts, no real rewards.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      // Demo only: no validation, no network call. Redirect to dashboard.
+      location.href = "dashboard.html";
+    });
+    document.getElementById("forgotLink").addEventListener("click", function (e) {
+      e.preventDefault();
+      alert("Demo only. No password reset is performed.");
+    });
+  </script>
+</body>
+</html>

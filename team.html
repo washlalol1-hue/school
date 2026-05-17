@@ -1,0 +1,83 @@
+<!--
+  Team - T-Video Media Demo
+  Educational only. Fake downline data.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Team · T-Video Media Demo</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div id="appRoot"></div>
+
+  <template id="pageContent">
+    <h1 class="page-title">My Team (Demo)</h1>
+
+    <div class="grid grid-4 mb-16">
+      <div class="stat"><div class="label">Total members</div><div class="value" id="totalM">0</div></div>
+      <div class="stat"><div class="label">Active</div><div class="value" id="activeM">0</div></div>
+      <div class="stat"><div class="label">Inactive</div><div class="value" id="inactiveM">0</div></div>
+      <div class="stat"><div class="label">Team earnings (demo)</div><div class="value" id="earnM">$0.00</div></div>
+    </div>
+
+    <div class="card mb-16">
+      <h3 class="mt-0">Downline (demo)</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Username</th><th>Join date</th><th>VIP level</th><th>Contribution</th><th>Status</th></tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="notice danger">
+      <strong>Scam analysis note:</strong> Team-based reward structures can be
+      used to create social pressure to recruit more people. When a platform's
+      "earnings" depend mostly on bringing new members in - rather than
+      delivering a product or service - the structure starts to look like a
+      pyramid scheme. This UI exists to illustrate that pattern, not to
+      promote it.
+    </div>
+
+    <div class="disclaimer mt-16">
+      Educational demo for scam-awareness research. No real money, no real
+      accounts, no real rewards.
+    </div>
+  </template>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    UI.renderShell("Team");
+
+    const total = DEMO.referrals.length;
+    const active = DEMO.referrals.filter(r => r.status === "Active").length;
+    const inactive = total - active;
+    const earnings = DEMO.referrals.reduce((s, r) => s + r.contribution, 0);
+
+    document.getElementById("totalM").textContent = total;
+    document.getElementById("activeM").textContent = active;
+    document.getElementById("inactiveM").textContent = inactive;
+    document.getElementById("earnM").textContent = "$" + earnings.toFixed(2);
+
+    const tbody = document.getElementById("rows");
+    DEMO.referrals.forEach(r => {
+      const tr = document.createElement("tr");
+      const cls = r.status === "Active" ? "badge-success" : "badge-muted";
+      tr.innerHTML = `
+        <td>${r.username}</td>
+        <td>${r.joined}</td>
+        <td><span class="badge badge-gold">VIP ${r.vip}</span></td>
+        <td>$${r.contribution.toFixed(2)}</td>
+        <td><span class="badge ${cls}">${r.status}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  </script>
+</body>
+</html>

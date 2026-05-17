@@ -1,0 +1,136 @@
+<!--
+  Invite / Referral - T-Video Media Demo
+  Educational only. No real referral tracking.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Invite · T-Video Media Demo</title>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <div id="appRoot"></div>
+
+  <template id="pageContent">
+    <h1 class="page-title">Invite Friends (Demo)</h1>
+
+    <div class="notice danger">
+      <strong>Educational warning:</strong> Referral systems can be used in
+      pyramid-style schemes where existing users are rewarded for bringing in
+      new users. When the platform's main income comes from new sign-ups
+      rather than a real product, that is a classic pyramid red flag.
+    </div>
+
+    <div class="grid grid-2 mb-16">
+      <div class="card">
+        <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;">Your demo invitation code</div>
+        <div style="font-size:24px;font-weight:800;color:var(--primary);" id="codeText">TVMD-9F4K2X</div>
+        <div class="row-flex mt-8">
+          <button class="btn" id="copyCodeBtn">Copy code</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="muted" style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;">Demo referral link</div>
+        <div style="word-break:break-all;font-family:ui-monospace,monospace;font-size:14px;" id="linkText">
+          https://demo.example.test/r/TVMD-9F4K2X
+        </div>
+        <div class="row-flex mt-8">
+          <button class="btn btn-primary" id="copyLinkBtn">Copy link</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-4 mb-16">
+      <div class="stat"><div class="label">Total team</div><div class="value" id="teamTotal">0</div></div>
+      <div class="stat"><div class="label">Active (demo)</div><div class="value" id="teamActive">0</div></div>
+      <div class="stat"><div class="label">L1 commission</div><div class="value">10%</div><div class="delta">demo rate</div></div>
+      <div class="stat"><div class="label">Team earnings</div><div class="value" id="teamEarn">$0.00</div><div class="delta">all-time (demo)</div></div>
+    </div>
+
+    <div class="grid grid-3 mb-16">
+      <div class="card">
+        <h3 class="mt-0">Level 1</h3>
+        <div class="muted">Direct invites</div>
+        <div style="font-size:22px;font-weight:800;color:var(--primary);">10%</div>
+        <div class="muted" style="font-size:13px;">of fake task earnings (demo)</div>
+      </div>
+      <div class="card">
+        <h3 class="mt-0">Level 2</h3>
+        <div class="muted">Invites of your invites</div>
+        <div style="font-size:22px;font-weight:800;color:var(--primary);">5%</div>
+        <div class="muted" style="font-size:13px;">demo commission</div>
+      </div>
+      <div class="card">
+        <h3 class="mt-0">Level 3</h3>
+        <div class="muted">Third-tier downline</div>
+        <div style="font-size:22px;font-weight:800;color:var(--primary);">2%</div>
+        <div class="muted" style="font-size:13px;">demo commission</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 class="mt-0">Demo referral list</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Username</th><th>Joined</th><th>VIP</th><th>Demo earnings</th><th>Status</th></tr>
+          </thead>
+          <tbody id="refRows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="disclaimer mt-16">
+      Educational demo for scam-awareness research. No real money, no real
+      accounts, no real rewards.
+    </div>
+  </template>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script>
+    UI.renderShell("Invite");
+
+    const u = DEMO.user;
+    document.getElementById("codeText").textContent = u.inviteCode;
+    document.getElementById("linkText").textContent =
+      "https://demo.example.test/r/" + u.inviteCode;
+
+    function copy(text) {
+      try {
+        navigator.clipboard.writeText(text);
+        UI.toast("Copied (demo) - this is not a real link");
+      } catch {
+        UI.toast("Demo only - copy not supported");
+      }
+    }
+    document.getElementById("copyCodeBtn").addEventListener("click", () => copy(u.inviteCode));
+    document.getElementById("copyLinkBtn").addEventListener("click", () =>
+      copy("https://demo.example.test/r/" + u.inviteCode));
+
+    // Stats
+    const total = DEMO.referrals.length;
+    const active = DEMO.referrals.filter(r => r.status === "Active").length;
+    const earnings = DEMO.referrals.reduce((s, r) => s + r.contribution, 0);
+    document.getElementById("teamTotal").textContent = total;
+    document.getElementById("teamActive").textContent = active;
+    document.getElementById("teamEarn").textContent = "$" + earnings.toFixed(2);
+
+    const tbody = document.getElementById("refRows");
+    DEMO.referrals.forEach(r => {
+      const tr = document.createElement("tr");
+      const cls = r.status === "Active" ? "badge-success" : "badge-muted";
+      tr.innerHTML = `
+        <td>${r.username}</td>
+        <td>${r.joined}</td>
+        <td><span class="badge badge-gold">VIP ${r.vip}</span></td>
+        <td>$${r.contribution.toFixed(2)}</td>
+        <td><span class="badge ${cls}">${r.status}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  </script>
+</body>
+</html>
