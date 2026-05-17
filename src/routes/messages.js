@@ -5,13 +5,13 @@ export async function handleMessages(request, env, path) {
   if (path === '/api/messages' && request.method === 'GET') {
     return list(request, env);
   }
-  return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
+  return new Response(JSON.stringify({ error: 'Not found', code: 'NOT_FOUND' }), { status: 404 });
 }
 
 async function list(request, env) {
   const user = await authMiddleware(request, env);
   if (!user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Unauthorized', code: 'UNAUTHORIZED' }), { status: 401 });
   }
 
   const url = new URL(request.url);

@@ -13,20 +13,23 @@ export async function handleSettings(request, env, path) {
   if (path === '/api/settings/reset' && request.method === 'DELETE') {
     return resetUser(request, env);
   }
-  return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
+  if (path === '/api/settings/account' && request.method === 'DELETE') {
+    return deleteAccount(request, env);
+  }
+  return new Response(JSON.stringify({ error: 'Not found', code: 'NOT_FOUND' }), { status: 404 });
 }
 
 async function updateProfile(request, env) {
   const user = await authMiddleware(request, env);
   if (!user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Unauthorized', code: 'UNAUTHORIZED' }), { status: 401 });
   }
 
   let body;
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Invalid JSON', code: 'INVALID_JSON' }), { status: 400 });
   }
 
   const { username, email, password } = body;
@@ -51,7 +54,7 @@ async function updateProfile(request, env) {
       'SELECT id FROM users WHERE username = ? AND id != ?'
     ).bind(cleanUsername, user.id).first();
     if (existing) {
-      return new Response(JSON.stringify({ error: 'Username already taken' }), { status: 409 });
+      return new Response(JSON.stringify({ error: 'Username already taken', code: 'CONFLICT' }), { status: 409 });
     }
   }
 
@@ -77,7 +80,7 @@ async function updateProfile(request, env) {
       'SELECT id FROM users WHERE email = ? AND id != ?'
     ).bind(email, user.id).first();
     if (existingEmail) {
-      return new Response(JSON.stringify({ error: 'Email already in use' }), { status: 409 });
+      return new Response(JSON.stringify({ error: 'Email already in use', code: 'CONFLICT' }), { status: 409 });
     }
   }
 
@@ -105,19 +108,19 @@ async function updateProfile(request, env) {
 async function updatePassword(request, env) {
   const user = await authMiddleware(request, env);
   if (!user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Unauthorized', code: 'UNAUTHORIZED' }), { status: 401 });
   }
 
   let body;
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Invalid JSON', code: 'INVALID_JSON' }), { status: 400 });
   }
 
   const { currentPassword, newPassword } = body;
   if (!currentPassword || !newPassword) {
-    return new Response(JSON.stringify({ error: 'Current and new passwords are required' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Current and new passwords are required', code: 'INVALID_INPUT' }), { status: 400 });
   }
 
   if (!isValidLength(newPassword, 6, 128)) {
@@ -126,7 +129,7 @@ async function updatePassword(request, env) {
 
   const valid = await verifyPassword(currentPassword, user.password_hash);
   if (!valid) {
-    return new Response(JSON.stringify({ error: 'Current password is incorrect' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Current password is incorrect', code: 'UNAUTHORIZED' }), { status: 401 });
   }
 
   const newHash = await hashPassword(newPassword);
@@ -138,7 +141,7 @@ async function updatePassword(request, env) {
 async function resetUser(request, env) {
   const user = await authMiddleware(request, env);
   if (!user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Unauthorized', code: 'UNAUTHORIZED' }), { status: 401 });
   }
 
   // Reset user data but keep account
@@ -153,4 +156,42 @@ async function resetUser(request, env) {
   await env.DB.prepare('DELETE FROM withdrawals WHERE user_id = ?').bind(user.id).run();
 
   return new Response(JSON.stringify({ ok: true }));
+}
+
+async function deleteAccount(request, env) {
+  const user = await authMiddleware(request, env);
+  if (!user) {
+    return new Response(JSON.stringify({ error: 'Unauthorized', code: 'UNAUTHORIZED' }), { status: 401 });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON', code: 'INVALID_JSON' }), { status: 400 });
+  }
+
+  const { password } = body;
+  if (!password) {
+    return errorResponse('Password is required', 'INVALID_INPUT');
+  }
+
+  const valid = await verifyPassword(password, user.password_hash);
+  if (!valid) {
+    return errorResponse('Incorrect password', 'INVALID_PASSWORD');
+  }
+
+  // Delete all associated data in order
+  await env.DB.prepare('DELETE FROM tasks_completed WHERE user_id = ?').bind(user.id).run();
+  await env.DB.prepare('DELETE FROM transactions WHERE user_id = ?').bind(user.id).run();
+  await env.DB.prepare('DELETE FROM withdrawals WHERE user_id = ?').bind(user.id).run();
+  await env.DB.prepare('DELETE FROM support_tickets WHERE user_id = ?').bind(user.id).run();
+  await env.DB.prepare('DELETE FROM support_replies WHERE user_id = ?').bind(user.id).run();
+  await env.DB.prepare('DELETE FROM referrals WHERE inviter_id = ? OR invitee_id = ?').bind(user.id, user.id).run();
+  await env.DB.prepare('DELETE FROM messages WHERE target_user_id = ?').bind(user.id).run();
+  await env.DB.prepare('DELETE FROM activity_log WHERE user_id = ?').bind(user.id).run();
+  await env.DB.prepare('DELETE FROM login_attempts WHERE identifier = ?').bind(user.username).run();
+  await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id).run();
+
+  return new Response(JSON.stringify({ ok: true, code: 'ACCOUNT_DELETED' }));
 }

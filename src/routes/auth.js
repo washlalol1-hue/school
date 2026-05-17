@@ -19,7 +19,7 @@ export async function handleAuth(request, env, path) {
   if (path === '/api/auth/reset-password' && request.method === 'POST') {
     return resetPassword(request, env);
   }
-  return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
+  return new Response(JSON.stringify({ error: 'Not found', code: 'NOT_FOUND' }), { status: 404 });
 }
 
 async function register(request, env) {
@@ -27,12 +27,12 @@ async function register(request, env) {
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Invalid JSON', code: 'INVALID_JSON' }), { status: 400 });
   }
 
   const { username, email, password, inviteCode } = body;
   if (!username || !email || !password) {
-    return new Response(JSON.stringify({ error: 'Username, email, and password are required' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Username, email, and password are required', code: 'INVALID_INPUT' }), { status: 400 });
   }
 
   const cleanUsername = sanitizeInput(username);
@@ -51,18 +51,18 @@ async function register(request, env) {
 
   // Email format validation
   if (!validateEmail(email)) {
-    return new Response(JSON.stringify({ error: 'Invalid email format' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Invalid email format', code: 'INVALID_INPUT' }), { status: 400 });
   }
 
   const existing = await getUserByUsername(env.DB, cleanUsername);
   if (existing) {
-    return new Response(JSON.stringify({ error: 'Username already taken' }), { status: 409 });
+    return new Response(JSON.stringify({ error: 'Username already taken', code: 'CONFLICT' }), { status: 409 });
   }
 
   // Check for duplicate email
   const existingEmail = await getUserByEmail(env.DB, email);
   if (existingEmail) {
-    return new Response(JSON.stringify({ error: 'Email already registered' }), { status: 409 });
+    return new Response(JSON.stringify({ error: 'Email already registered', code: 'CONFLICT' }), { status: 409 });
   }
 
   const passwordHash = await hashPassword(password);
@@ -117,12 +117,12 @@ async function login(request, env) {
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Invalid JSON', code: 'INVALID_JSON' }), { status: 400 });
   }
 
   const { username, password } = body;
   if (!username || !password) {
-    return new Response(JSON.stringify({ error: 'Username and password are required' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Username and password are required', code: 'INVALID_INPUT' }), { status: 400 });
   }
 
   // Rate limiting: check failed attempts in last 15 minutes
@@ -140,11 +140,11 @@ async function login(request, env) {
     await env.DB.prepare(
       'INSERT INTO login_attempts (identifier, success) VALUES (?, 0)'
     ).bind(username).run();
-    return new Response(JSON.stringify({ error: 'Invalid credentials' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Invalid credentials', code: 'UNAUTHORIZED' }), { status: 401 });
   }
 
   if (user.is_frozen) {
-    return new Response(JSON.stringify({ error: 'Account is frozen' }), { status: 403 });
+    return new Response(JSON.stringify({ error: 'Account is frozen', code: 'FORBIDDEN' }), { status: 403 });
   }
 
   const valid = await verifyPassword(password, user.password_hash);
@@ -153,7 +153,7 @@ async function login(request, env) {
     await env.DB.prepare(
       'INSERT INTO login_attempts (identifier, success) VALUES (?, 0)'
     ).bind(username).run();
-    return new Response(JSON.stringify({ error: 'Invalid credentials' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Invalid credentials', code: 'UNAUTHORIZED' }), { status: 401 });
   }
 
   // Record successful login attempt
@@ -161,8 +161,16 @@ async function login(request, env) {
     'INSERT INTO login_attempts (identifier, success) VALUES (?, 1)'
   ).bind(username).run();
 
-  // Update last login info
+  // Daily login bonus: check if last_login_date was NOT today
   const todayDate = new Date().toISOString().split('T')[0];
+  if (user.last_login_date !== todayDate) {
+    await env.DB.prepare('UPDATE users SET balance = balance + 0.50 WHERE id = ?').bind(user.id).run();
+    await env.DB.prepare(
+      "INSERT INTO transactions (user_id, type, amount, status, description) VALUES (?, 'Login Bonus', 0.50, 'Completed', 'Daily login bonus')"
+    ).bind(user.id).run();
+  }
+
+  // Update last login info
   await env.DB.prepare(
     "UPDATE users SET last_login_at = datetime('now'), login_count = login_count + 1, last_login_date = ? WHERE id = ?"
   ).bind(todayDate, user.id).run();
@@ -184,7 +192,7 @@ async function login(request, env) {
 async function me(request, env) {
   const user = await authMiddleware(request, env);
   if (!user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Unauthorized', code: 'UNAUTHORIZED' }), { status: 401 });
   }
   return new Response(JSON.stringify({ user: sanitizeUser(user) }));
 }
@@ -194,17 +202,17 @@ async function forgotPassword(request, env) {
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Invalid JSON', code: 'INVALID_JSON' }), { status: 400 });
   }
 
   const { username, email } = body;
   if (!username || !email) {
-    return new Response(JSON.stringify({ error: 'Username and email are required' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Username and email are required', code: 'INVALID_INPUT' }), { status: 400 });
   }
 
   const user = await getUserByUsername(env.DB, username);
   if (!user || user.email !== email) {
-    return new Response(JSON.stringify({ error: 'No account found with that username and email combination' }), { status: 404 });
+    return new Response(JSON.stringify({ error: 'No account found with that username and email combination', code: 'NOT_FOUND' }), { status: 404 });
   }
 
   // Generate a random reset token
@@ -234,16 +242,16 @@ async function resetPassword(request, env) {
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Invalid JSON', code: 'INVALID_JSON' }), { status: 400 });
   }
 
   const { token, newPassword } = body;
   if (!token || !newPassword) {
-    return new Response(JSON.stringify({ error: 'Token and new password are required' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Token and new password are required', code: 'INVALID_INPUT' }), { status: 400 });
   }
 
   if (newPassword.length < 6) {
-    return new Response(JSON.stringify({ error: 'Password too short' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Password too short', code: 'INVALID_INPUT' }), { status: 400 });
   }
 
   const user = await env.DB.prepare(
@@ -251,12 +259,12 @@ async function resetPassword(request, env) {
   ).bind(token).first();
 
   if (!user) {
-    return new Response(JSON.stringify({ error: 'Invalid or expired reset token' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Invalid or expired reset token', code: 'INVALID_INPUT' }), { status: 400 });
   }
 
   // Check if token has expired
   if (user.password_reset_expires && new Date(user.password_reset_expires) < new Date()) {
-    return new Response(JSON.stringify({ error: 'Reset token has expired' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Reset token has expired', code: 'INVALID_INPUT' }), { status: 400 });
   }
 
   const passwordHash = await hashPassword(newPassword);

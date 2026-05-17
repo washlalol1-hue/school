@@ -11,7 +11,7 @@ export async function handleTasks(request, env, path) {
   if (completeMatch && request.method === 'POST') {
     return doComplete(request, env, completeMatch[1]);
   }
-  return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
+  return new Response(JSON.stringify({ error: 'Not found', code: 'NOT_FOUND' }), { status: 404 });
 }
 
 function generateTaskList(vipTier, today, completedIds) {
@@ -76,7 +76,7 @@ function generateTaskList(vipTier, today, completedIds) {
 async function listTasks(request, env) {
   const user = await authMiddleware(request, env);
   if (!user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Unauthorized', code: 'UNAUTHORIZED' }), { status: 401 });
   }
 
   const tier = await getVipTier(env.DB, user.vip_level);
@@ -95,12 +95,12 @@ async function listTasks(request, env) {
 async function doComplete(request, env, taskId) {
   const user = await authMiddleware(request, env);
   if (!user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Unauthorized', code: 'UNAUTHORIZED' }), { status: 401 });
   }
 
   const tier = await getVipTier(env.DB, user.vip_level);
   if (!tier) {
-    return new Response(JSON.stringify({ error: 'No VIP package active' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'No VIP package active', code: 'INVALID_INPUT' }), { status: 400 });
   }
 
   // Check VIP expiration
@@ -111,11 +111,11 @@ async function doComplete(request, env, taskId) {
   const today = todayStr();
   const completed = await getCompletedTasksToday(env.DB, user.id, today);
   if (completed.find(c => c.task_id === taskId)) {
-    return new Response(JSON.stringify({ error: 'Task already completed' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Task already completed', code: 'CONFLICT' }), { status: 400 });
   }
 
   if (completed.length >= tier.daily_tasks) {
-    return new Response(JSON.stringify({ error: 'All daily tasks completed' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'All daily tasks completed', code: 'INVALID_INPUT' }), { status: 400 });
   }
 
   const reward = Math.round((tier.daily_income / tier.daily_tasks) * 100) / 100;
@@ -126,7 +126,7 @@ async function doComplete(request, env, taskId) {
   ).bind(user.id, taskId, today, reward).run();
 
   if (!insertResult.meta.changes) {
-    return new Response(JSON.stringify({ error: 'Task already completed' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Task already completed', code: 'CONFLICT' }), { status: 400 });
   }
 
   // Update user balance and earnings atomically using batch

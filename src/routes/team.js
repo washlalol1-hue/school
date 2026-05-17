@@ -8,13 +8,13 @@ export async function handleTeam(request, env, path) {
   if (path === '/api/invite' && request.method === 'GET') {
     return getInvite(request, env);
   }
-  return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
+  return new Response(JSON.stringify({ error: 'Not found', code: 'NOT_FOUND' }), { status: 404 });
 }
 
 async function getTeam(request, env) {
   const user = await authMiddleware(request, env);
   if (!user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Unauthorized', code: 'UNAUTHORIZED' }), { status: 401 });
   }
 
   // Get L1 referrals
@@ -48,7 +48,7 @@ async function getTeam(request, env) {
 async function getInvite(request, env) {
   const user = await authMiddleware(request, env);
   if (!user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Unauthorized', code: 'UNAUTHORIZED' }), { status: 401 });
   }
 
   return new Response(JSON.stringify({

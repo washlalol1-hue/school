@@ -1,7 +1,7 @@
 // Wallet routes: withdraw, list withdrawals, recharge
 import { authMiddleware } from '../auth.js';
 import { updateBalance, addTransaction, getUser } from '../db.js';
-import { errorResponse } from '../utils.js';
+import { isValidLength, errorResponse } from '../utils.js';
 
 export async function handleWallet(request, env, path) {
   if (path === '/api/wallet/withdraw' && request.method === 'POST') {
@@ -13,34 +13,37 @@ export async function handleWallet(request, env, path) {
   if (path === '/api/wallet/recharge' && request.method === 'POST') {
     return recharge(request, env);
   }
-  return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
+  return new Response(JSON.stringify({ error: 'Not found', code: 'NOT_FOUND' }), { status: 404 });
 }
 
 async function withdraw(request, env) {
   const user = await authMiddleware(request, env);
   if (!user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Unauthorized', code: 'UNAUTHORIZED' }), { status: 401 });
   }
 
   let body;
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Invalid JSON', code: 'INVALID_JSON' }), { status: 400 });
   }
 
   const { amount, address } = body;
   if (!amount || amount <= 0) {
-    return new Response(JSON.stringify({ error: 'Invalid amount' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Invalid amount', code: 'INVALID_INPUT' }), { status: 400 });
   }
   if (amount < 5) {
     return errorResponse('Minimum withdrawal is $5', 'MIN_WITHDRAWAL');
   }
   if (!address) {
-    return new Response(JSON.stringify({ error: 'Address is required' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Address is required', code: 'INVALID_INPUT' }), { status: 400 });
+  }
+  if (!isValidLength(address, 1, 200)) {
+    return errorResponse('Address must be between 1 and 200 characters', 'INVALID_INPUT');
   }
   if (amount > user.balance) {
-    return new Response(JSON.stringify({ error: 'Insufficient balance' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Insufficient balance', code: 'INSUFFICIENT_BALANCE' }), { status: 400 });
   }
 
   // Daily withdrawal limit checks
@@ -74,7 +77,7 @@ async function withdraw(request, env) {
   ).bind(amount, user.id, amount).run();
 
   if (!deductResult.meta.changes) {
-    return new Response(JSON.stringify({ error: 'Insufficient balance' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Insufficient balance', code: 'INSUFFICIENT_BALANCE' }), { status: 400 });
   }
 
   // Create withdrawal record
@@ -100,13 +103,27 @@ async function withdraw(request, env) {
 async function listWithdrawals(request, env) {
   const user = await authMiddleware(request, env);
   if (!user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Unauthorized', code: 'UNAUTHORIZED' }), { status: 401 });
   }
 
-  const results = await env.DB.prepare(
-    'SELECT * FROM withdrawals WHERE user_id = ? ORDER BY created_at DESC LIMIT 50'
-  ).bind(user.id).all();
+  const url = new URL(request.url);
+  let page = parseInt(url.searchParams.get('page')) || 1;
+  let limit = parseInt(url.searchParams.get('limit')) || 20;
 
+  if (page < 1) page = 1;
+  if (limit < 1) limit = 1;
+  if (limit > 100) limit = 100;
+  const offset = (page - 1) * limit;
+
+  const countResult = await env.DB.prepare(
+    'SELECT COUNT(*) as cnt FROM withdrawals WHERE user_id = ?'
+  ).bind(user.id).first();
+
+  const results = await env.DB.prepare(
+    'SELECT * FROM withdrawals WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+  ).bind(user.id, limit, offset).all();
+
+  const total = countResult.cnt;
   const withdrawals = results.results.map(w => ({
     id: w.id,
     amount: w.amount,
@@ -115,25 +132,31 @@ async function listWithdrawals(request, env) {
     date: w.created_at,
   }));
 
-  return new Response(JSON.stringify({ withdrawals }));
+  return new Response(JSON.stringify({
+    withdrawals,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit)
+  }));
 }
 
 async function recharge(request, env) {
   const user = await authMiddleware(request, env);
   if (!user) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    return new Response(JSON.stringify({ error: 'Unauthorized', code: 'UNAUTHORIZED' }), { status: 401 });
   }
 
   let body;
   try {
     body = await request.json();
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Invalid JSON', code: 'INVALID_JSON' }), { status: 400 });
   }
 
   const { amount } = body;
   if (!amount || amount <= 0) {
-    return new Response(JSON.stringify({ error: 'Invalid amount' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Invalid amount', code: 'INVALID_INPUT' }), { status: 400 });
   }
   if (amount < 1) {
     return errorResponse('Minimum recharge is $1', 'INVALID_AMOUNT');

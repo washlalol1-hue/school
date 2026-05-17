@@ -11,6 +11,7 @@ import { handleMessages } from './routes/messages.js';
 import { handleSupport } from './routes/support.js';
 import { handleSettings } from './routes/settings.js';
 import { handleAdmin } from './routes/admin.js';
+import { handleStats } from './routes/stats.js';
 
 function corsHeaders() {
   return {
@@ -51,6 +52,11 @@ export default {
 
     let response;
     try {
+      // Health check - no auth required
+      if (path === '/api/health' && request.method === 'GET') {
+        return jsonResponse(new Response(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString(), version: '1.0.0' })));
+      }
+
       if (path.startsWith('/api/auth/')) {
         response = await handleAuth(request, env, path);
       } else if (path.startsWith('/api/vip/')) {
@@ -65,6 +71,8 @@ export default {
         response = await handleTransactions(request, env, path);
       } else if (path.startsWith('/api/messages')) {
         response = await handleMessages(request, env, path);
+      } else if (path === '/api/stats' || path.startsWith('/api/stats/')) {
+        response = await handleStats(request, env, path);
       } else if (path.startsWith('/api/support/')) {
         response = await handleSupport(request, env, path);
       } else if (path.startsWith('/api/settings/')) {
@@ -72,10 +80,10 @@ export default {
       } else if (path.startsWith('/api/admin/')) {
         response = await handleAdmin(request, env, path);
       } else {
-        response = new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
+        response = new Response(JSON.stringify({ error: 'Not found', code: 'NOT_FOUND' }), { status: 404 });
       }
     } catch (err) {
-      response = new Response(JSON.stringify({ error: 'Internal server error', detail: err.message }), { status: 500 });
+      response = new Response(JSON.stringify({ error: 'Internal server error', code: 'INTERNAL_ERROR', detail: err.message }), { status: 500 });
     }
 
     return jsonResponse(response);
