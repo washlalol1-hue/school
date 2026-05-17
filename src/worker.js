@@ -70,6 +70,7 @@ export default {
       } else if (path.startsWith('/api/wallet/')) {
         response = await handleWallet(request, env, path);
       } else if (path.startsWith('/api/team') || path.startsWith('/api/invite')) {
+        // Handles /api/team, /api/team/stats, /api/invite
         response = await handleTeam(request, env, path);
       } else if (path.startsWith('/api/transactions')) {
         response = await handleTransactions(request, env, path);

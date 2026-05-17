@@ -87,6 +87,22 @@
       location.href = 'dashboard.html';
     }
 
+    // Read ref query parameter and auto-fill invite code
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var refCode = params.get('ref');
+      if (refCode) {
+        var inviteInput = document.getElementById('reg_invite');
+        inviteInput.value = refCode;
+        inviteInput.setAttribute('readonly', 'true');
+        // Show invited-by indicator
+        var indicator = document.createElement('div');
+        indicator.className = 'notice info';
+        indicator.innerHTML = '<strong>Invited by:</strong> ' + refCode;
+        inviteInput.parentNode.appendChild(indicator);
+      }
+    })();
+
     document.getElementById("registerForm").addEventListener("submit", function (e) {
       e.preventDefault();
       var username = document.getElementById("reg_username").value.trim();

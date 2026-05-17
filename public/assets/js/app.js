@@ -104,6 +104,94 @@
     // Bind topbar logout
     document.getElementById('topbarLogout').addEventListener('click', UI.logout);
 
+    // Add hamburger button to topbar (mobile only)
+    var hamburgerBtn = document.createElement('button');
+    hamburgerBtn.className = 'hamburger-btn';
+    hamburgerBtn.innerHTML = '☰';
+    hamburgerBtn.setAttribute('aria-label', 'Open menu');
+    topbar.insertBefore(hamburgerBtn, topbar.firstChild);
+
+    // Mobile bottom navigation
+    var bottomNavTabs = [
+      { label: 'Home', icon: '🏠', href: 'dashboard.html', match: 'Home' },
+      { label: 'Tasks', icon: '🎬', href: 'tasks.html', match: 'Video Tasks' },
+      { label: 'Wallet', icon: '💸', href: 'withdraw.html', match: 'Withdraw' },
+      { label: 'Team', icon: '👥', href: 'team.html', match: 'Team' }
+    ];
+
+    var mobileNav = document.createElement('nav');
+    mobileNav.className = 'mobile-bottom-nav';
+
+    bottomNavTabs.forEach(function (tab) {
+      var a = document.createElement('a');
+      a.href = tab.href;
+      a.className = 'nav-tab';
+      if (activeTitle === tab.match || activeTitle === tab.label) a.className += ' active';
+      a.innerHTML = '<span class="nav-icon">' + tab.icon + '</span><span class="nav-label">' + tab.label + '</span>';
+      mobileNav.appendChild(a);
+    });
+
+    var moreBtn = document.createElement('button');
+    moreBtn.className = 'nav-tab';
+    moreBtn.id = 'moreTab';
+    moreBtn.innerHTML = '<span class="nav-icon">☰</span><span class="nav-label">More</span>';
+    mobileNav.appendChild(moreBtn);
+
+    document.body.appendChild(mobileNav);
+
+    // Mobile drawer
+    var drawerItems = [
+      { label: 'VIP Levels', icon: '👑', href: 'vip.html' },
+      { label: 'Recharge', icon: '💳', href: 'recharge.html' },
+      { label: 'Invite', icon: '🤝', href: 'invite.html' },
+      { label: 'Transactions', icon: '📋', href: 'transactions.html' },
+      { label: 'Messages', icon: '💬', href: 'messages.html' },
+      { label: 'Support', icon: '🛟', href: 'support.html' },
+      { label: 'Settings', icon: '⚙️', href: 'settings.html' },
+      { label: 'Admin', icon: '🛡️', href: 'admin.html' }
+    ];
+
+    var drawerBackdrop = document.createElement('div');
+    drawerBackdrop.className = 'mobile-drawer-backdrop';
+    drawerBackdrop.id = 'mobileDrawer';
+
+    var drawer = document.createElement('div');
+    drawer.className = 'mobile-drawer';
+
+    var handle = document.createElement('div');
+    handle.className = 'drawer-handle';
+    drawer.appendChild(handle);
+
+    var drawerNav = document.createElement('nav');
+    drawerNav.className = 'drawer-nav';
+    drawerItems.forEach(function (item) {
+      var a = document.createElement('a');
+      a.href = item.href;
+      if (activeTitle === item.label) a.className = 'active';
+      a.innerHTML = '<span class="drawer-icon">' + item.icon + '</span>' + item.label;
+      drawerNav.appendChild(a);
+    });
+    drawer.appendChild(drawerNav);
+
+    var drawerLogout = document.createElement('button');
+    drawerLogout.className = 'btn btn-danger';
+    drawerLogout.style.cssText = 'width:100%;margin-top:12px;';
+    drawerLogout.textContent = '🚪 Logout';
+    drawerLogout.addEventListener('click', UI.logout);
+    drawer.appendChild(drawerLogout);
+
+    drawerBackdrop.appendChild(drawer);
+    document.body.appendChild(drawerBackdrop);
+
+    function openDrawer() { drawerBackdrop.classList.add('open'); }
+    function closeDrawer() { drawerBackdrop.classList.remove('open'); }
+
+    moreBtn.addEventListener('click', openDrawer);
+    hamburgerBtn.addEventListener('click', openDrawer);
+    drawerBackdrop.addEventListener('click', function (e) {
+      if (e.target === drawerBackdrop) closeDrawer();
+    });
+
     // Move template content into main content area
     var tpl = document.getElementById('pageContent');
     if (tpl) {

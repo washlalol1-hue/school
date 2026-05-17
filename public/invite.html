@@ -64,7 +64,7 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Username</th><th>Joined</th><th>VIP</th><th>Earnings</th><th>Status</th></tr>
+            <tr><th>Username</th><th>Level</th><th>Joined</th><th>VIP</th><th>Earnings</th><th>Status</th></tr>
           </thead>
           <tbody id="refRows"></tbody>
         </table>
@@ -85,7 +85,7 @@
     API.fetch('/api/invite').then(res => {
       if (res.inviteCode) {
         inviteCode = res.inviteCode;
-        inviteLink = res.link || '';
+        inviteLink = window.location.origin + '/register.html?ref=' + encodeURIComponent(inviteCode);
         document.getElementById("codeText").textContent = inviteCode;
         document.getElementById("linkText").textContent = inviteLink;
       }
@@ -111,23 +111,25 @@
       const referrals = res.referrals;
       const total = referrals.length;
       const active = referrals.filter(r => r.status === "Active").length;
-      const earnings = referrals.reduce((s, r) => s + (r.contribution || 0), 0);
+      const totalComm = res.totalCommission || 0;
 
       document.getElementById("teamTotal").textContent = total;
       document.getElementById("teamActive").textContent = active;
-      document.getElementById("teamEarn").textContent = "$" + earnings.toFixed(2);
+      document.getElementById("teamEarn").textContent = "$" + totalComm.toFixed(2);
 
       const tbody = document.getElementById("refRows");
       tbody.innerHTML = "";
       if (!referrals.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="muted center">No referrals yet</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="muted center">No referrals yet. Share your link to start earning!</td></tr>`;
         return;
       }
       referrals.forEach(r => {
         const tr = document.createElement("tr");
         const cls = r.status === "Active" ? "badge-success" : "badge-muted";
+        const lvlCls = r.level === 1 ? "badge-gold" : r.level === 2 ? "badge-warning" : "badge-muted";
         tr.innerHTML = `
           <td>${escapeHtml(r.username || '')}</td>
+          <td><span class="badge ${lvlCls}">L${r.level}</span></td>
           <td>${escapeHtml(r.joined || '')}</td>
           <td><span class="badge badge-gold">VIP ${r.vip || 0}</span></td>
           <td>$${(r.contribution || 0).toFixed(2)}</td>
