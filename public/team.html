@@ -61,11 +61,11 @@
         const tr = document.createElement("tr");
         const cls = r.status === "Active" ? "badge-success" : "badge-muted";
         tr.innerHTML = `
-          <td>${r.username || ''}</td>
-          <td>${r.joined || ''}</td>
+          <td>${escapeHtml(r.username || '')}</td>
+          <td>${escapeHtml(r.joined || '')}</td>
           <td><span class="badge badge-gold">VIP ${r.vip || 0}</span></td>
           <td>$${(r.contribution || 0).toFixed(2)}</td>
-          <td><span class="badge ${cls}">${r.status || ''}</span></td>
+          <td><span class="badge ${cls}">${escapeHtml(r.status || '')}</span></td>
         `;
         tbody.appendChild(tr);
       });

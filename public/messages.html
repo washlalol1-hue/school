@@ -46,12 +46,12 @@
         card.innerHTML = `
           <div class="row-flex space-between">
             <div class="row-flex">
-              <span class="badge ${tagCls[m.tag] || ""}">${m.tag || ''}</span>
-              <strong>${m.title || ''}</strong>
+              <span class="badge ${tagCls[m.tag] || ""}">${escapeHtml(m.tag || '')}</span>
+              <strong>${escapeHtml(m.title || '')}</strong>
             </div>
-            <span class="muted" style="font-size:12px;">${m.date || ''}</span>
+            <span class="muted" style="font-size:12px;">${escapeHtml(m.date || '')}</span>
           </div>
-          <div class="muted mt-8" style="font-size:14px;">${m.body || ''}</div>
+          <div class="muted mt-8" style="font-size:14px;">${escapeHtml(m.body || '')}</div>
         `;
         list.appendChild(card);
       });

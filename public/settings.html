@@ -464,33 +464,48 @@
         '</div>',
         {
           confirmText: "Delete Account",
-          onConfirm: function () {
-            var password = document.getElementById("deletePassword").value;
-            if (!password) {
-              UI.toast('Password is required');
-              return;
-            }
-            API.fetch('/api/settings/account', {
-              method: 'DELETE',
-              body: JSON.stringify({ password: password })
-            }).then(function (res) {
-              if (res.error) {
-                if (res.code === 'INVALID_PASSWORD') {
-                  UI.toast('Incorrect password');
-                } else {
-                  UI.toast(res.error);
-                }
-                return;
-              }
-              localStorage.removeItem('tvmd_token');
-              localStorage.removeItem('tvmd_cache');
-              window.location.href = 'login.html';
-            }).catch(function () {
-              UI.toast('Failed to delete account');
-            });
-          }
+          manualClose: true
         }
       );
+
+      // Manually manage the confirm button instead of using onConfirm (which auto-closes)
+      var confirmBtn = document.getElementById('modalConfirm');
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', function () {
+          var password = document.getElementById("deletePassword").value;
+          if (!password) {
+            UI.toast('Password is required');
+            return;
+          }
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = 'Deleting...';
+          API.fetch('/api/settings/account', {
+            method: 'DELETE',
+            body: JSON.stringify({ password: password })
+          }).then(function (res) {
+            if (res.error) {
+              confirmBtn.disabled = false;
+              confirmBtn.textContent = 'Delete Account';
+              if (res.code === 'INVALID_PASSWORD') {
+                UI.toast('Incorrect password');
+              } else {
+                UI.toast(res.error);
+              }
+              return;
+            }
+            // Success - remove the modal and redirect
+            var modal = document.getElementById('uiModal');
+            if (modal) modal.remove();
+            localStorage.removeItem('tvmd_token');
+            localStorage.removeItem('tvmd_cache');
+            window.location.href = 'login.html';
+          }).catch(function () {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Delete Account';
+            UI.toast('Failed to delete account');
+          });
+        });
+      }
     });
 
     // Logout

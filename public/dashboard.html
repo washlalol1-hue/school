@@ -116,7 +116,7 @@
         Rejected:  "badge-danger",
         Frozen:    "badge-danger",
       };
-      return `<span class="badge ${map[s] || "badge-muted"}">${s}</span>`;
+      return `<span class="badge ${map[s] || "badge-muted"}">${escapeHtml(s)}</span>`;
     }
 
     function renderProfile() {
@@ -219,8 +219,8 @@
         const cls = t.amount >= 0 ? "badge-success" : "badge-warning";
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${t.date || ''}</td>
-          <td>${t.type || ''}</td>
+          <td>${escapeHtml(t.date || '')}</td>
+          <td>${escapeHtml(t.type || '')}</td>
           <td><span class="badge ${cls}">${sign}$${Math.abs(t.amount).toFixed(2)}</span></td>
           <td>${statusBadge(t.status)}</td>
         `;

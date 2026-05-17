@@ -149,7 +149,7 @@
         opts.onConfirm();
         backdrop.remove();
       });
-    } else if (opts.confirmText) {
+    } else if (opts.confirmText && !opts.manualClose) {
       document.getElementById('modalConfirm').addEventListener('click', function () {
         backdrop.remove();
       });

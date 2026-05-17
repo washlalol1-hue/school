@@ -68,7 +68,7 @@
         Rejected:  "badge-danger",
         Frozen:    "badge-danger",
       };
-      return `<span class="badge ${map[s] || "badge-muted"}">${s}</span>`;
+      return `<span class="badge ${map[s] || "badge-muted"}">${escapeHtml(s)}</span>`;
     }
 
     function renderBalance() {
@@ -93,9 +93,9 @@
       withdrawals.forEach(w => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${w.date || ''}</td>
+          <td>${escapeHtml(w.date || '')}</td>
           <td>$${w.amount.toFixed(2)}</td>
-          <td><code>${w.address}</code></td>
+          <td><code>${escapeHtml(w.address)}</code></td>
           <td>${statusBadge(w.status)}</td>
         `;
         tbody.appendChild(tr);

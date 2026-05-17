@@ -171,7 +171,7 @@
       vipDist.forEach(function (v) {
         var row = document.createElement("div");
         row.style.cssText = "display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--line);font-size:13px;";
-        row.innerHTML = '<span>' + (v.level || v.name || '') + '</span><span class="muted">' + (v.pct || 0) + '%</span>';
+        row.innerHTML = '<span>' + escapeHtml(v.level || v.name || '') + '</span><span class="muted">' + (v.pct || 0) + '%</span>';
         legend.appendChild(row);
       });
 
@@ -207,10 +207,10 @@
         tr.id = 'review-' + r.id;
         tr.innerHTML =
           '<td>' + r.id + '</td>' +
-          '<td>' + (r.username || '--') + '</td>' +
+          '<td>' + escapeHtml(r.username || '--') + '</td>' +
           '<td>$' + (r.amount || 0).toFixed(2) + '</td>' +
-          '<td><code>' + (r.address || '--') + '</code></td>' +
-          '<td>' + (r.date || '--') + '</td>' +
+          '<td><code>' + escapeHtml(r.address || '--') + '</code></td>' +
+          '<td>' + escapeHtml(r.date || '--') + '</td>' +
           '<td>' +
             '<button class="btn btn-sm btn-primary" data-act="approve" data-id="' + r.id + '">Approve</button> ' +
             '<button class="btn btn-sm btn-danger" data-act="reject" data-id="' + r.id + '">Reject</button>' +
@@ -275,10 +275,10 @@
         var freezeLabel = (statusText === 'Frozen' || u.frozen) ? 'Unfreeze' : 'Freeze';
         tr.innerHTML =
           '<td>#' + u.id + '</td>' +
-          '<td>' + (u.username || '--') + '</td>' +
+          '<td>' + escapeHtml(u.username || '--') + '</td>' +
           '<td><span class="badge badge-gold">VIP ' + (u.vip !== undefined ? u.vip : u.vipLevel || 0) + '</span></td>' +
           '<td>$' + (u.balance || 0).toFixed(2) + '</td>' +
-          '<td><span class="badge ' + cls + '">' + statusText + '</span></td>' +
+          '<td><span class="badge ' + cls + '">' + escapeHtml(statusText) + '</span></td>' +
           '<td>' +
             '<button class="btn btn-sm" data-act="view" data-uid="' + u.id + '">View</button> ' +
             '<button class="btn btn-sm btn-warning" data-act="freeze" data-uid="' + u.id + '">' + freezeLabel + '</button>' +
@@ -326,8 +326,8 @@
           var txCount = (res.transactions || []).length;
           var wdCount = (res.withdrawals || []).length;
           var html =
-            '<p><strong>Username:</strong> ' + (u.username || '--') + '</p>' +
-            '<p><strong>Email:</strong> ' + (u.email || '--') + '</p>' +
+            '<p><strong>Username:</strong> ' + escapeHtml(u.username || '--') + '</p>' +
+            '<p><strong>Email:</strong> ' + escapeHtml(u.email || '--') + '</p>' +
             '<p><strong>Balance:</strong> $' + (u.balance || 0).toFixed(2) + '</p>' +
             '<p><strong>VIP Level:</strong> ' + (u.vipLevel !== undefined ? u.vipLevel : u.vip || 0) + '</p>' +
             '<p><strong>Referrals:</strong> ' + (res.referralCount || 0) + '</p>' +
@@ -415,9 +415,9 @@
         var dateStr = t.date ? new Date(t.date).toLocaleDateString() : '--';
         tr.innerHTML =
           '<td>' + (t.id || '--') + '</td>' +
-          '<td>' + (t.username || t.user || '--') + '</td>' +
-          '<td>' + (t.subject || '--') + '</td>' +
-          '<td><span class="badge ' + badgeClass + '">' + (t.status || 'Open') + '</span></td>' +
+          '<td>' + escapeHtml(t.username || t.user || '--') + '</td>' +
+          '<td>' + escapeHtml(t.subject || '--') + '</td>' +
+          '<td><span class="badge ' + badgeClass + '">' + escapeHtml(t.status || 'Open') + '</span></td>' +
           '<td>' + dateStr + '</td>';
         tbody.appendChild(tr);
       });

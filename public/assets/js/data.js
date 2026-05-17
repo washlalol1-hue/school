@@ -1,6 +1,13 @@
 // T-Video Media - Data Layer
 // Provides window.DEMO with user state, API methods, and local caching.
 
+// HTML-escape utility (global, available to all pages)
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+window.escapeHtml = escapeHtml;
+
 (function () {
   'use strict';
 
@@ -49,13 +56,14 @@
   }
 
   var cache = loadCache() || {};
-  var token = localStorage.getItem(TOKEN_KEY);
 
   // Helper for API calls (internal to data.js)
+  // Re-reads token on every call to avoid stale-token issues
   function apiFetch(path, opts) {
     opts = opts || {};
     var headers = opts.headers || {};
     headers['Content-Type'] = 'application/json';
+    var token = localStorage.getItem(TOKEN_KEY);
     if (token) headers['Authorization'] = 'Bearer ' + token;
     opts.headers = headers;
     return fetch(path, opts).then(function (res) {
@@ -100,115 +108,6 @@
   // ---- API methods ----
   DEMO.api = {};
 
-  DEMO.api.getActiveVip = function () {
-    var level = DEMO.user.vipLevel;
-    if (level === undefined || level === null) return null;
-    var tier = DEMO.vipTiers.find(function (t) { return t.level === level; });
-    return tier || null;
-  };
-
-  DEMO.api.rewardPerTask = function () {
-    var v = DEMO.api.getActiveVip();
-    if (!v || !v.daily) return 0;
-    return Math.round((v.dailyIncome / v.daily) * 100) / 100;
-  };
-
-  DEMO.api.generateDailyTasks = function () {
-    var v = DEMO.api.getActiveVip();
-    if (!v) return [];
-    var reward = DEMO.api.rewardPerTask();
-    var today = new Date().toISOString().split('T')[0];
-    var titles = [
-      'Product Review: Smart Home Devices',
-      'Tech Unboxing: Latest Gadgets 2025',
-      'Travel Vlog: Hidden Paradise',
-      'Cooking Tutorial: Quick Recipes',
-      'Fitness Challenge: 10 Min Workout',
-      'DIY Crafts: Home Decor Ideas',
-      'Gaming Highlights: Top Plays',
-      'Music Mix: Chill Beats',
-      'Fashion Lookbook: Summer Trends',
-      'Science Explained: Space Facts',
-      'Car Review: Electric Vehicles',
-      'Pet Care: Training Tips',
-      'Photography Tutorial: Night Shots',
-      'Language Learning: Quick Phrases',
-      'Art Tutorial: Watercolor Basics',
-      'Dance Tutorial: Easy Steps',
-      'Book Review: Must-Read Novels',
-      'Gardening Tips: Indoor Plants',
-      'Meditation Guide: 5 Minute Calm',
-      'History Documentary: Ancient Wonders',
-      'Sports Highlights: Best Goals',
-      'Home Workout: No Equipment',
-      'Movie Review: New Releases',
-      'Podcast Episode: Life Lessons',
-      'Street Food Tour: Asian Flavors',
-      'Nature Documentary: Ocean Life',
-      'Comedy Sketch: Daily Laughs',
-      'Investment Basics: Beginners Guide',
-      'Yoga Flow: Morning Routine',
-      'Architecture Tour: Modern Design',
-      'Wildlife Safari: African Plains',
-      'Skateboard Tricks: Beginner to Pro',
-      'Piano Tutorial: Simple Songs',
-      'Astronomy Guide: Star Gazing',
-      'Surfing Lessons: Wave Riding',
-      'Drone Footage: City Skylines',
-      'Martial Arts: Basic Moves',
-      'Woodworking: Simple Projects',
-      'Painting Tutorial: Landscapes',
-      'Camping Guide: Survival Tips',
-    ];
-    var tasks = [];
-    var completedIds = (DEMO.tasks || []).filter(function (t) { return t.date === today; }).map(function (t) { return t.id; });
-    for (var i = 0; i < v.daily; i++) {
-      var id = 'task-' + today + '-' + i;
-      tasks.push({
-        id: id,
-        title: titles[i % titles.length],
-        reward: reward,
-        videoSrc: 'assets/videos/task-' + i + '.mp4',
-        completed: completedIds.indexOf(id) !== -1,
-      });
-    }
-    return tasks;
-  };
-
-  DEMO.api.completeTask = function (taskId, reward) {
-    var today = new Date().toISOString().split('T')[0];
-    var alreadyDone = (DEMO.tasks || []).find(function (t) { return t.id === taskId && t.date === today; });
-    if (alreadyDone) return { ok: false, error: 'Task already completed' };
-
-    // Mark as done locally so UI updates immediately
-    if (!DEMO.tasks) DEMO.tasks = [];
-    DEMO.tasks.push({ id: taskId, date: today });
-    persist();
-
-    // Call the API directly (no optimistic balance updates)
-    apiFetch('/api/tasks/' + encodeURIComponent(taskId) + '/complete', { method: 'POST' })
-      .then(function (res) {
-        if (res.balance !== undefined) DEMO.user.balance = res.balance;
-        if (res.todayEarnings !== undefined) DEMO.user.todayEarnings = res.todayEarnings;
-        if (res.totalEarnings !== undefined) DEMO.user.totalEarnings = res.totalEarnings;
-        DEMO.user.completedTasks = (DEMO.user.completedTasks || 0) + 1;
-        persist();
-      }).catch(function () { /* API error - task still marked locally */ });
-
-    return { ok: true };
-  };
-
-  DEMO.api.setProfile = function (data) {
-    if (data.username) DEMO.user.username = data.username;
-    if (data.email) DEMO.user.email = data.email;
-    persist();
-
-    if (token) {
-      apiFetch('/api/settings/profile', { method: 'PUT', body: JSON.stringify(data) })
-        .catch(function () { /* offline fallback */ });
-    }
-  };
-
   DEMO.api.resetUser = function () {
     DEMO.user = Object.assign({}, defaultUser);
     DEMO.transactions = [];
@@ -216,6 +115,7 @@
     DEMO.tasks = [];
     persist();
 
+    var token = localStorage.getItem(TOKEN_KEY);
     if (token) {
       apiFetch('/api/settings/reset', { method: 'DELETE' })
         .catch(function () { /* offline fallback */ });
@@ -224,11 +124,12 @@
 
   DEMO.resetUser = DEMO.api.resetUser;
 
-  // ---- Load data from API on page load (if token exists) ----
+  // ---- Load essential data from API on page load (if token exists) ----
   function loadFromAPI() {
+    var token = localStorage.getItem(TOKEN_KEY);
     if (!token) return;
 
-    // Fetch user
+    // Fetch user profile (used by multiple pages for DEMO.user cache)
     apiFetch('/api/auth/me').then(function (res) {
       if (res.user) {
         DEMO.user = res.user;
@@ -237,7 +138,7 @@
       }
     }).catch(function () { /* use cached data */ });
 
-    // Fetch VIP tiers
+    // Fetch VIP tiers (used by multiple pages for DEMO.vipTiers cache)
     apiFetch('/api/vip/tiers').then(function (res) {
       if (res.tiers && res.tiers.length) {
         DEMO.vipTiers = res.tiers.map(function (t) {
@@ -252,39 +153,6 @@
             free: t.price === 0,
           };
         });
-        persist();
-      }
-    }).catch(function () { /* use cached data */ });
-
-    // Fetch transactions
-    apiFetch('/api/transactions').then(function (res) {
-      if (res.transactions) {
-        DEMO.transactions = res.transactions;
-        persist();
-      }
-    }).catch(function () { /* use cached data */ });
-
-    // Fetch withdrawals
-    apiFetch('/api/wallet/withdrawals').then(function (res) {
-      if (res.withdrawals) {
-        DEMO.withdrawals = res.withdrawals;
-        persist();
-      }
-    }).catch(function () { /* use cached data */ });
-
-    // Fetch team/referrals
-    apiFetch('/api/team').then(function (res) {
-      if (res.referrals) {
-        DEMO.referrals = res.referrals;
-        DEMO.user.referrals = res.referrals.length;
-        persist();
-      }
-    }).catch(function () { /* use cached data */ });
-
-    // Fetch messages
-    apiFetch('/api/messages').then(function (res) {
-      if (res.messages) {
-        DEMO.messages = res.messages;
         persist();
       }
     }).catch(function () { /* use cached data */ });
