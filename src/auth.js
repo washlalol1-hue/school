@@ -113,5 +113,9 @@ export async function authMiddleware(request, env) {
   const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(payload.userId).first();
   if (!user) return null;
   if (user.is_frozen) return null;
+
+  // Verify token_version matches
+  if (payload.tokenVersion !== undefined && user.token_version !== undefined && payload.tokenVersion !== user.token_version) return null;
+
   return user;
 }

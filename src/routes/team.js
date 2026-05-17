@@ -17,23 +17,30 @@ async function getTeam(request, env) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
 
-  // Get L1 referrals with their info
+  // Get L1 referrals
   const refs = await env.DB.prepare(
-    `SELECT u.id, u.username, u.vip_level, u.is_frozen, u.created_at,
-      COALESCE((SELECT SUM(amount) FROM transactions WHERE user_id = r.inviter_id AND type = 'Referral' AND description LIKE '%user #' || u.id || '%'), 0) as contribution
+    `SELECT u.id, u.username, u.vip_level, u.is_frozen, u.created_at
     FROM referrals r
     JOIN users u ON u.id = r.invitee_id
     WHERE r.inviter_id = ? AND r.level = 1
     ORDER BY u.created_at DESC`
   ).bind(user.id).all();
 
-  const referrals = refs.results.map(r => ({
-    username: r.username,
-    vip: r.vip_level,
-    joined: r.created_at ? r.created_at.split('T')[0] : r.created_at,
-    contribution: r.contribution || 0,
-    status: r.is_frozen ? 'Inactive' : 'Active',
-  }));
+  const referrals = [];
+  for (const r of refs.results) {
+    // Calculate contribution per referral with a separate query
+    const contrib = await env.DB.prepare(
+      "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = 'Referral' AND description LIKE ?"
+    ).bind(user.id, `%user #${r.id}%`).first();
+
+    referrals.push({
+      username: r.username,
+      vip: r.vip_level,
+      joined: r.created_at ? r.created_at.split('T')[0] : r.created_at,
+      contribution: contrib ? contrib.total : 0,
+      status: r.is_frozen ? 'Inactive' : 'Active',
+    });
+  }
 
   return new Response(JSON.stringify({ referrals }));
 }

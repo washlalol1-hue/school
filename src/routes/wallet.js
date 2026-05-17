@@ -1,6 +1,7 @@
 // Wallet routes: withdraw, list withdrawals, recharge
 import { authMiddleware } from '../auth.js';
 import { updateBalance, addTransaction, getUser } from '../db.js';
+import { errorResponse } from '../utils.js';
 
 export async function handleWallet(request, env, path) {
   if (path === '/api/wallet/withdraw' && request.method === 'POST') {
@@ -32,11 +33,39 @@ async function withdraw(request, env) {
   if (!amount || amount <= 0) {
     return new Response(JSON.stringify({ error: 'Invalid amount' }), { status: 400 });
   }
+  if (amount < 5) {
+    return errorResponse('Minimum withdrawal is $5', 'MIN_WITHDRAWAL');
+  }
   if (!address) {
     return new Response(JSON.stringify({ error: 'Address is required' }), { status: 400 });
   }
   if (amount > user.balance) {
     return new Response(JSON.stringify({ error: 'Insufficient balance' }), { status: 400 });
+  }
+
+  // Daily withdrawal limit checks
+  const dailyStats = await env.DB.prepare(
+    "SELECT COUNT(*) as cnt, COALESCE(SUM(amount), 0) as total FROM withdrawals WHERE user_id = ? AND created_at > datetime('now', '-1 day')"
+  ).bind(user.id).first();
+
+  if (dailyStats.cnt >= 3) {
+    return errorResponse('Maximum 3 withdrawals per day', 'DAILY_LIMIT');
+  }
+  if (dailyStats.total + amount > 5000) {
+    return errorResponse('Daily withdrawal limit is $5000', 'DAILY_LIMIT');
+  }
+
+  // 24h cooldown check
+  const lastWithdrawal = await env.DB.prepare(
+    'SELECT created_at FROM withdrawals WHERE user_id = ? ORDER BY created_at DESC LIMIT 1'
+  ).bind(user.id).first();
+
+  if (lastWithdrawal && lastWithdrawal.created_at) {
+    const lastTime = new Date(lastWithdrawal.created_at).getTime();
+    const now = Date.now();
+    if (now - lastTime < 24 * 60 * 60 * 1000) {
+      return errorResponse('Must wait 24 hours between withdrawals', 'COOLDOWN');
+    }
   }
 
   // Atomic balance deduction: only succeeds if balance is sufficient
@@ -105,6 +134,12 @@ async function recharge(request, env) {
   const { amount } = body;
   if (!amount || amount <= 0) {
     return new Response(JSON.stringify({ error: 'Invalid amount' }), { status: 400 });
+  }
+  if (amount < 1) {
+    return errorResponse('Minimum recharge is $1', 'INVALID_AMOUNT');
+  }
+  if (amount > 10000) {
+    return errorResponse('Maximum recharge is $10000', 'INVALID_AMOUNT');
   }
 
   // Add to balance

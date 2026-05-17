@@ -1,5 +1,6 @@
 // Support routes: create and list tickets
 import { authMiddleware } from '../auth.js';
+import { sanitizeInput, isValidLength, errorResponse } from '../utils.js';
 
 export async function handleSupport(request, env, path) {
   if (path === '/api/support/tickets' && request.method === 'POST') {
@@ -29,9 +30,18 @@ async function create(request, env) {
     return new Response(JSON.stringify({ error: 'Subject and message are required' }), { status: 400 });
   }
 
+  if (!isValidLength(subject, 1, 200)) {
+    return errorResponse('Subject must be between 1 and 200 characters', 'INVALID_SUBJECT');
+  }
+  if (!isValidLength(message, 1, 2000)) {
+    return errorResponse('Message must be between 1 and 2000 characters', 'INVALID_MESSAGE');
+  }
+
+  const cleanSubject = sanitizeInput(subject);
+
   await env.DB.prepare(
     'INSERT INTO support_tickets (user_id, subject, category, message) VALUES (?, ?, ?, ?)'
-  ).bind(user.id, subject, category || 'Other', message).run();
+  ).bind(user.id, cleanSubject, category || 'Other', message).run();
 
   return new Response(JSON.stringify({ ok: true }), { status: 201 });
 }

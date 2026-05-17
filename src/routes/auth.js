@@ -1,6 +1,7 @@
 // Auth routes: register, login, me
 import { createJWT, hashPassword, verifyPassword, authMiddleware } from '../auth.js';
 import { getUserByUsername, getUserByEmail, getUserByInviteCode, createUser, getUser, getUserCount, generateInviteCode } from '../db.js';
+import { sanitizeInput, isValidUsername, isValidLength, validateEmail, errorResponse } from '../utils.js';
 
 export async function handleAuth(request, env, path) {
   if (path === '/api/auth/register' && request.method === 'POST') {
@@ -33,17 +34,27 @@ async function register(request, env) {
   if (!username || !email || !password) {
     return new Response(JSON.stringify({ error: 'Username, email, and password are required' }), { status: 400 });
   }
-  if (password.length < 3) {
-    return new Response(JSON.stringify({ error: 'Password too short' }), { status: 400 });
+
+  const cleanUsername = sanitizeInput(username);
+
+  if (!isValidUsername(cleanUsername)) {
+    return errorResponse('Username must be 3-30 alphanumeric characters or underscores', 'INVALID_USERNAME');
+  }
+
+  if (!isValidLength(email, 5, 100)) {
+    return errorResponse('Email must be between 5 and 100 characters', 'INVALID_EMAIL');
+  }
+
+  if (!isValidLength(password, 6, 128)) {
+    return errorResponse('Password must be between 6 and 128 characters', 'INVALID_PASSWORD');
   }
 
   // Email format validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
+  if (!validateEmail(email)) {
     return new Response(JSON.stringify({ error: 'Invalid email format' }), { status: 400 });
   }
 
-  const existing = await getUserByUsername(env.DB, username);
+  const existing = await getUserByUsername(env.DB, cleanUsername);
   if (existing) {
     return new Response(JSON.stringify({ error: 'Username already taken' }), { status: 409 });
   }
@@ -67,7 +78,7 @@ async function register(request, env) {
 
   // Check if this is the first user (make them admin)
   const userCount = await getUserCount(env.DB);
-  const userId = await createUser(env.DB, { username, email, passwordHash, inviteCode: newInviteCode, invitedBy });
+  const userId = await createUser(env.DB, { username: cleanUsername, email, passwordHash, inviteCode: newInviteCode, invitedBy });
 
   if (userCount === 0) {
     await env.DB.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').bind(userId).run();
@@ -96,7 +107,7 @@ async function register(request, env) {
     }
   }
 
-  const token = await createJWT({ userId }, env.JWT_SECRET);
+  const token = await createJWT({ userId, tokenVersion: 0 }, env.JWT_SECRET);
   const user = await getUser(env.DB, userId);
   return new Response(JSON.stringify({ token, user: sanitizeUser(user) }), { status: 201 });
 }
@@ -114,8 +125,21 @@ async function login(request, env) {
     return new Response(JSON.stringify({ error: 'Username and password are required' }), { status: 400 });
   }
 
+  // Rate limiting: check failed attempts in last 15 minutes
+  const failedAttempts = await env.DB.prepare(
+    "SELECT COUNT(*) as cnt FROM login_attempts WHERE identifier = ? AND success = 0 AND attempt_time > datetime('now', '-15 minutes')"
+  ).bind(username).first();
+
+  if (failedAttempts && failedAttempts.cnt >= 5) {
+    return new Response(JSON.stringify({ error: 'Too many login attempts. Please try again later.', code: 'RATE_LIMITED' }), { status: 429 });
+  }
+
   const user = await getUserByUsername(env.DB, username);
   if (!user) {
+    // Record failed attempt
+    await env.DB.prepare(
+      'INSERT INTO login_attempts (identifier, success) VALUES (?, 0)'
+    ).bind(username).run();
     return new Response(JSON.stringify({ error: 'Invalid credentials' }), { status: 401 });
   }
 
@@ -125,10 +149,35 @@ async function login(request, env) {
 
   const valid = await verifyPassword(password, user.password_hash);
   if (!valid) {
+    // Record failed attempt
+    await env.DB.prepare(
+      'INSERT INTO login_attempts (identifier, success) VALUES (?, 0)'
+    ).bind(username).run();
     return new Response(JSON.stringify({ error: 'Invalid credentials' }), { status: 401 });
   }
 
-  const token = await createJWT({ userId: user.id }, env.JWT_SECRET);
+  // Record successful login attempt
+  await env.DB.prepare(
+    'INSERT INTO login_attempts (identifier, success) VALUES (?, 1)'
+  ).bind(username).run();
+
+  // Update last login info
+  const todayDate = new Date().toISOString().split('T')[0];
+  await env.DB.prepare(
+    "UPDATE users SET last_login_at = datetime('now'), login_count = login_count + 1, last_login_date = ? WHERE id = ?"
+  ).bind(todayDate, user.id).run();
+
+  // Background cleanup: old login attempts
+  await env.DB.prepare(
+    "DELETE FROM login_attempts WHERE attempt_time < datetime('now', '-1 hour')"
+  ).run();
+
+  // Cleanup expired password reset tokens
+  await env.DB.prepare(
+    "UPDATE users SET password_reset_token = NULL, password_reset_expires = NULL WHERE password_reset_expires IS NOT NULL AND password_reset_expires < datetime('now')"
+  ).run();
+
+  const token = await createJWT({ userId: user.id, tokenVersion: user.token_version || 0 }, env.JWT_SECRET);
   return new Response(JSON.stringify({ token, user: sanitizeUser(user) }));
 }
 
@@ -193,7 +242,7 @@ async function resetPassword(request, env) {
     return new Response(JSON.stringify({ error: 'Token and new password are required' }), { status: 400 });
   }
 
-  if (newPassword.length < 3) {
+  if (newPassword.length < 6) {
     return new Response(JSON.stringify({ error: 'Password too short' }), { status: 400 });
   }
 

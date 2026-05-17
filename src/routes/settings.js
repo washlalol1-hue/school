@@ -1,6 +1,7 @@
 // Settings routes: profile update, password change, reset user data
 import { authMiddleware, hashPassword, verifyPassword } from '../auth.js';
 import { getUser } from '../db.js';
+import { sanitizeInput, isValidUsername, isValidLength, validateEmail, errorResponse } from '../utils.js';
 
 export async function handleSettings(request, env, path) {
   if (path === '/api/settings/profile' && request.method === 'PUT') {
@@ -28,20 +29,74 @@ async function updateProfile(request, env) {
     return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
   }
 
-  const { username, email } = body;
+  const { username, email, password } = body;
+
   if (username) {
+    const cleanUsername = sanitizeInput(username);
+    if (!isValidUsername(cleanUsername)) {
+      return errorResponse('Username must be 3-30 alphanumeric characters or underscores', 'INVALID_USERNAME');
+    }
+
+    // Check username change cooldown (24 hours)
+    if (user.username_changed_at) {
+      const lastChange = new Date(user.username_changed_at).getTime();
+      const now = Date.now();
+      if (now - lastChange < 24 * 60 * 60 * 1000) {
+        return errorResponse('Can only change username once every 24 hours', 'USERNAME_COOLDOWN');
+      }
+    }
+
     // Check uniqueness
     const existing = await env.DB.prepare(
       'SELECT id FROM users WHERE username = ? AND id != ?'
-    ).bind(username, user.id).first();
+    ).bind(cleanUsername, user.id).first();
     if (existing) {
       return new Response(JSON.stringify({ error: 'Username already taken' }), { status: 409 });
     }
   }
 
-  await env.DB.prepare(
-    'UPDATE users SET username = COALESCE(?, username), email = COALESCE(?, email) WHERE id = ?'
-  ).bind(username || null, email || null, user.id).run();
+  if (email) {
+    if (!validateEmail(email)) {
+      return errorResponse('Invalid email format', 'INVALID_EMAIL');
+    }
+    if (!isValidLength(email, 5, 100)) {
+      return errorResponse('Email must be between 5 and 100 characters', 'INVALID_EMAIL');
+    }
+
+    // Require password for email change
+    if (!password) {
+      return errorResponse('Password is required to change email', 'PASSWORD_REQUIRED');
+    }
+    const validPass = await verifyPassword(password, user.password_hash);
+    if (!validPass) {
+      return errorResponse('Incorrect password', 'INVALID_PASSWORD');
+    }
+
+    // Check email uniqueness
+    const existingEmail = await env.DB.prepare(
+      'SELECT id FROM users WHERE email = ? AND id != ?'
+    ).bind(email, user.id).first();
+    if (existingEmail) {
+      return new Response(JSON.stringify({ error: 'Email already in use' }), { status: 409 });
+    }
+  }
+
+  // Build update query
+  if (username && email) {
+    const cleanUsername = sanitizeInput(username);
+    await env.DB.prepare(
+      "UPDATE users SET username = ?, email = ?, username_changed_at = datetime('now') WHERE id = ?"
+    ).bind(cleanUsername, email, user.id).run();
+  } else if (username) {
+    const cleanUsername = sanitizeInput(username);
+    await env.DB.prepare(
+      "UPDATE users SET username = ?, username_changed_at = datetime('now') WHERE id = ?"
+    ).bind(cleanUsername, user.id).run();
+  } else if (email) {
+    await env.DB.prepare(
+      'UPDATE users SET email = ? WHERE id = ?'
+    ).bind(email, user.id).run();
+  }
 
   const updated = await getUser(env.DB, user.id);
   return new Response(JSON.stringify({ ok: true, username: updated.username, email: updated.email }));
@@ -65,13 +120,17 @@ async function updatePassword(request, env) {
     return new Response(JSON.stringify({ error: 'Current and new passwords are required' }), { status: 400 });
   }
 
+  if (!isValidLength(newPassword, 6, 128)) {
+    return errorResponse('Password must be between 6 and 128 characters', 'INVALID_PASSWORD');
+  }
+
   const valid = await verifyPassword(currentPassword, user.password_hash);
   if (!valid) {
     return new Response(JSON.stringify({ error: 'Current password is incorrect' }), { status: 401 });
   }
 
   const newHash = await hashPassword(newPassword);
-  await env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(newHash, user.id).run();
+  await env.DB.prepare('UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?').bind(newHash, user.id).run();
 
   return new Response(JSON.stringify({ ok: true }));
 }

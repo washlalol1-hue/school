@@ -1,6 +1,7 @@
 // Tasks routes: list daily tasks, complete a task
 import { authMiddleware } from '../auth.js';
 import { getVipTier, getCompletedTasksToday, updateBalance, updateTodayEarnings, addTransaction, getUser, todayStr } from '../db.js';
+import { errorResponse } from '../utils.js';
 
 export async function handleTasks(request, env, path) {
   if (path === '/api/tasks' && request.method === 'GET') {
@@ -102,6 +103,11 @@ async function doComplete(request, env, taskId) {
     return new Response(JSON.stringify({ error: 'No VIP package active' }), { status: 400 });
   }
 
+  // Check VIP expiration
+  if (user.vip_level > 0 && user.vip_expires_at && new Date(user.vip_expires_at) < new Date()) {
+    return errorResponse('Your VIP package has expired. Please renew.', 'VIP_EXPIRED');
+  }
+
   const today = todayStr();
   const completed = await getCompletedTasksToday(env.DB, user.id, today);
   if (completed.find(c => c.task_id === taskId)) {
@@ -123,12 +129,24 @@ async function doComplete(request, env, taskId) {
     return new Response(JSON.stringify({ error: 'Task already completed' }), { status: 400 });
   }
 
-  // Update user balance and earnings
-  await updateBalance(env.DB, user.id, reward);
-  await updateTodayEarnings(env.DB, user.id, reward, today);
-  await env.DB.prepare(
+  // Update user balance and earnings atomically using batch
+  const balanceStmt = env.DB.prepare(
+    'UPDATE users SET balance = balance + ? WHERE id = ?'
+  ).bind(reward, user.id);
+
+  const earningsStmt = user.today_date !== today
+    ? env.DB.prepare(
+        'UPDATE users SET today_earnings = ?, today_date = ? WHERE id = ?'
+      ).bind(reward, today, user.id)
+    : env.DB.prepare(
+        'UPDATE users SET today_earnings = today_earnings + ? WHERE id = ?'
+      ).bind(reward, user.id);
+
+  const totalsStmt = env.DB.prepare(
     'UPDATE users SET total_earnings = total_earnings + ?, completed_tasks = completed_tasks + 1 WHERE id = ?'
-  ).bind(reward, user.id).run();
+  ).bind(reward, user.id);
+
+  await env.DB.batch([balanceStmt, earningsStmt, totalsStmt]);
 
   // Add transaction
   await addTransaction(env.DB, {

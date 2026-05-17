@@ -14,7 +14,7 @@ export async function handleAdmin(request, env, path) {
     return stats(env);
   }
   if (path === '/api/admin/users' && request.method === 'GET') {
-    return listUsers(env);
+    return listUsers(request, env);
   }
   const freezeMatch = path.match(/^\/api\/admin\/users\/(\d+)\/freeze$/);
   if (freezeMatch && request.method === 'POST') {
@@ -91,12 +91,36 @@ async function stats(env) {
   }));
 }
 
-async function listUsers(env) {
-  const results = await env.DB.prepare(
-    'SELECT id, username, vip_level, balance, is_frozen, created_at FROM users ORDER BY id DESC LIMIT 100'
-  ).all();
+async function listUsers(request, env) {
+  const url = new URL(request.url);
+  let page = parseInt(url.searchParams.get('page')) || 1;
+  let limit = parseInt(url.searchParams.get('limit')) || 50;
+  const search = url.searchParams.get('search') || '';
 
-  const users = results.results.map(u => ({
+  if (page < 1) page = 1;
+  if (limit < 1) limit = 1;
+  if (limit > 100) limit = 100;
+  const offset = (page - 1) * limit;
+
+  let countQuery;
+  let dataQuery;
+
+  if (search) {
+    const pattern = `%${search}%`;
+    countQuery = await env.DB.prepare(
+      'SELECT COUNT(*) as cnt FROM users WHERE username LIKE ?'
+    ).bind(pattern).first();
+    dataQuery = await env.DB.prepare(
+      'SELECT id, username, vip_level, balance, is_frozen, created_at FROM users WHERE username LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?'
+    ).bind(pattern, limit, offset).all();
+  } else {
+    countQuery = await env.DB.prepare('SELECT COUNT(*) as cnt FROM users').first();
+    dataQuery = await env.DB.prepare(
+      'SELECT id, username, vip_level, balance, is_frozen, created_at FROM users ORDER BY id DESC LIMIT ? OFFSET ?'
+    ).bind(limit, offset).all();
+  }
+
+  const users = dataQuery.results.map(u => ({
     id: u.id,
     username: u.username,
     vip: u.vip_level,
@@ -104,7 +128,7 @@ async function listUsers(env) {
     status: u.is_frozen ? 'Suspended' : 'Active',
   }));
 
-  return new Response(JSON.stringify({ users }));
+  return new Response(JSON.stringify({ users, total: countQuery.cnt, page, limit }));
 }
 
 async function freezeUser(env, userId) {
@@ -124,8 +148,8 @@ async function approveWithdrawal(env, withdrawalId) {
   }
   await env.DB.prepare("UPDATE withdrawals SET status = 'Completed' WHERE id = ?").bind(withdrawalId).run();
   await env.DB.prepare(
-    "UPDATE transactions SET status = 'Completed' WHERE user_id = ? AND type = 'Withdraw' AND status = 'Pending' AND description LIKE ?"
-  ).bind(wd.user_id, `Withdrawal #${withdrawalId}%`).run();
+    "UPDATE transactions SET status = 'Completed' WHERE user_id = ? AND type = 'Withdraw' AND status = 'Pending' AND description = ?"
+  ).bind(wd.user_id, `Withdrawal #${withdrawalId} to ${wd.address}`).run();
   return new Response(JSON.stringify({ ok: true }));
 }
 
@@ -136,8 +160,8 @@ async function rejectWithdrawal(env, withdrawalId) {
   }
   await env.DB.prepare("UPDATE withdrawals SET status = 'Rejected' WHERE id = ?").bind(withdrawalId).run();
   await env.DB.prepare(
-    "UPDATE transactions SET status = 'Rejected' WHERE user_id = ? AND type = 'Withdraw' AND status = 'Pending' AND description LIKE ?"
-  ).bind(wd.user_id, `Withdrawal #${withdrawalId}%`).run();
+    "UPDATE transactions SET status = 'Rejected' WHERE user_id = ? AND type = 'Withdraw' AND status = 'Pending' AND description = ?"
+  ).bind(wd.user_id, `Withdrawal #${withdrawalId} to ${wd.address}`).run();
   // Refund balance
   await env.DB.prepare(
     'UPDATE users SET balance = balance + ? WHERE id = ?'
